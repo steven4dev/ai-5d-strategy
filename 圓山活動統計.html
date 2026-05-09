@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>圓山步道活動報名統計</title>
+<style>
+  :root {
+    --bg: #0f172a; --bg2: #1e293b; --bg3: #273449;
+    --border: #334155; --text: #e2e8f0; --sub: #94a3b8; --dim: #64748b;
+    --blue: #3b82f6; --green: #22c55e; --amber: #f59e0b;
+    --purple: #a855f7; --red: #ef4444; --teal: #14b8a6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Microsoft JhengHei', 'Segoe UI', sans-serif;
+         background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #1e3a5f 0%, #0f2744 100%);
+    border-bottom: 1px solid var(--border); padding: 24px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .header h1 { font-size: 1.4rem; font-weight: 700; color: #bfdbfe; }
+  .header p  { font-size: .8rem; color: var(--sub); margin-top: 4px; }
+  .badge-live { background: var(--green); color: #fff; font-size: .7rem;
+    font-weight: 700; padding: 3px 10px; border-radius: 20px; letter-spacing: .5px; }
+  .last-update { font-size: .75rem; color: var(--dim); margin-top: 4px; }
+
+  /* Main */
+  .main { max-width: 1100px; margin: 0 auto; padding: 28px 24px; }
+
+  /* Stat cards */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 16px; margin-bottom: 32px; }
+  .card {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px; position: relative; overflow: hidden;
+  }
+  .card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; border-radius:12px 12px 0 0; }
+  .card.total::before  { background: var(--blue); }
+  .card.kanbu::before  { background: var(--amber); }
+  .card.gakusei::before{ background: var(--green); }
+  .card.friend-k::before{ background: var(--purple); }
+  .card.friend-g::before{ background: var(--teal); }
+  .card-label { font-size: .78rem; color: var(--sub); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+  .card-num   { font-size: 2.5rem; font-weight: 800; line-height: 1.1; margin: 8px 0 4px; }
+  .card.total  .card-num { color: var(--blue); }
+  .card.kanbu  .card-num { color: var(--amber); }
+  .card.gakusei.card-num { color: var(--green); }
+  .card.friend-k .card-num { color: var(--purple); }
+  .card.friend-g .card-num { color: var(--teal); }
+  .card-sub   { font-size: .75rem; color: var(--dim); }
+
+  /* Section */
+  .section { margin-bottom: 32px; }
+  .section-title { font-size: 1rem; font-weight: 700; color: var(--sub);
+    letter-spacing: .5px; text-transform: uppercase; margin-bottom: 16px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+
+  /* Meal grid */
+  .meal-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap: 16px; }
+  .meal-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .meal-name { font-size: .95rem; font-weight: 700; margin-bottom: 14px; }
+  .meal-bar-wrap { margin-bottom: 10px; }
+  .meal-bar-label { display: flex; justify-content: space-between; font-size: .78rem; color: var(--sub); margin-bottom: 4px; }
+  .meal-bar-bg { background: var(--bg3); border-radius: 6px; height: 10px; overflow: hidden; }
+  .meal-bar-fill { height: 100%; border-radius: 6px; transition: width .5s ease; }
+
+  /* Money summary */
+  .money-box { background: var(--bg2); border: 1px solid var(--amber); border-radius: 12px;
+    padding: 20px 28px; display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
+  .money-item { text-align: center; }
+  .money-num  { font-size: 1.8rem; font-weight: 800; color: var(--amber); }
+  .money-lbl  { font-size: .75rem; color: var(--dim); margin-top: 2px; }
+
+  /* Identity pie-like bar */
+  .id-bar-wrap { display: flex; border-radius: 8px; overflow: hidden; height: 28px; margin-bottom: 14px; }
+  .id-bar-seg  { display: flex; align-items: center; justify-content: center;
+    font-size: .72rem; font-weight: 700; color: #fff; transition: flex .5s; white-space: nowrap; overflow:hidden; }
+
+  /* Table */
+  .tbl-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .tbl-toolbar { padding: 14px 18px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); }
+  .tbl-toolbar input {
+    background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 6px 12px; font-size: .85rem; width: 220px; outline: none;
+  }
+  .tbl-toolbar select {
+    background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 6px 10px; font-size: .85rem; outline: none;
+  }
+  .tbl-count { margin-left: auto; font-size: .78rem; color: var(--dim); }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: var(--bg3); }
+  th { padding: 10px 14px; text-align: left; font-size: .75rem; color: var(--sub);
+       font-weight: 700; text-transform: uppercase; letter-spacing: .5px; white-space: nowrap; }
+  td { padding: 9px 14px; font-size: .83rem; border-top: 1px solid var(--border); }
+  tr:hover td { background: var(--bg3); }
+  .identity-tag { display: inline-block; padding: 2px 8px; border-radius: 12px;
+    font-size: .72rem; font-weight: 700; }
+  .tag-幹部      { background: rgba(245,158,11,.2); color: var(--amber); }
+  .tag-學員      { background: rgba(34,197,94,.2);  color: var(--green); }
+  .tag-幹部親友  { background: rgba(168,85,247,.2); color: var(--purple); }
+  .tag-學員親友  { background: rgba(20,184,166,.2); color: var(--teal); }
+  .tag-無        { color: var(--dim); font-size: .78rem; }
+  .tag-paid      { background: rgba(245,158,11,.15); color: var(--amber);
+    font-size:.72rem; font-weight:700; padding: 1px 6px; border-radius:8px; }
+
+  /* Loading */
+  #loading { text-align: center; padding: 80px; color: var(--sub); font-size: 1.1rem; }
+  #error   { text-align: center; padding: 80px; color: var(--red); }
+  #content { display: none; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>🏔️ 圓山步道｜全真道院社青班戶外活動報名統計</h1>
+    <p>資料來源：Google 試算表（每次開啟自動更新）</p>
+    <div class="last-update" id="lastUpdate">載入中…</div>
+  </div>
+  <span class="badge-live">LIVE</span>
+</div>
+
+<div class="main">
+  <div id="loading">⏳ 正在載入報名資料…</div>
+  <div id="error" style="display:none"></div>
+  <div id="content">
+
+    <!-- 人數統計 -->
+    <div class="section">
+      <div class="section-title">📊 人數統計</div>
+      <div class="cards">
+        <div class="card total">
+          <div class="card-label">報名總人數</div>
+          <div class="card-num" id="c-total">—</div>
+          <div class="card-sub">所有身分合計</div>
+        </div>
+        <div class="card kanbu">
+          <div class="card-label">幹部</div>
+          <div class="card-num" id="c-幹部" style="color:var(--amber)">—</div>
+          <div class="card-sub" id="p-幹部"></div>
+        </div>
+        <div class="card gakusei">
+          <div class="card-label">學員</div>
+          <div class="card-num" id="c-學員" style="color:var(--green)">—</div>
+          <div class="card-sub" id="p-學員"></div>
+        </div>
+        <div class="card friend-k">
+          <div class="card-label">幹部親友</div>
+          <div class="card-num" id="c-幹部親友" style="color:var(--purple)">—</div>
+          <div class="card-sub" id="p-幹部親友"></div>
+        </div>
+        <div class="card friend-g">
+          <div class="card-label">學員親友</div>
+          <div class="card-num" id="c-學員親友" style="color:var(--teal)">—</div>
+          <div class="card-sub" id="p-學員親友"></div>
+        </div>
+      </div>
+
+      <!-- 身分比例長條 -->
+      <div class="id-bar-wrap" id="id-bar"></div>
+    </div>
+
+    <!-- 餐食統計 -->
+    <div class="section">
+      <div class="section-title">🍱 飯捲統計（免費1個 / 加購70元）</div>
+      <div class="meal-grid" id="meal-grid"></div>
+    </div>
+
+    <!-- 費用摘要 -->
+    <div class="section">
+      <div class="section-title">💰 加購費用摘要</div>
+      <div class="money-box">
+        <div class="money-item">
+          <div class="money-num" id="m-total-portions">—</div>
+          <div class="money-lbl">飯捲總份數</div>
+        </div>
+        <div class="money-item">
+          <div class="money-num" id="m-free">—</div>
+          <div class="money-lbl">免費份數</div>
+        </div>
+        <div class="money-item">
+          <div class="money-num" id="m-paid-portions">—</div>
+          <div class="money-lbl">加購份數</div>
+        </div>
+        <div class="money-item">
+          <div class="money-num" id="m-paid-amount">—</div>
+          <div class="money-lbl">加購收入（元）</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 報名名單 -->
+    <div class="section">
+      <div class="section-title">📋 報名名單</div>
+      <div class="tbl-wrap">
+        <div class="tbl-toolbar">
+          <input type="text" id="searchInput" placeholder="搜尋姓名…" oninput="filterTable()">
+          <select id="identityFilter" onchange="filterTable()">
+            <option value="">所有身分</option>
+            <option>幹部</option>
+            <option>學員</option>
+            <option>幹部親友</option>
+            <option>學員親友</option>
+          </select>
+          <span class="tbl-count" id="tbl-count"></span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>姓名</th>
+              <th>身分</th>
+              <th>介紹人</th>
+              <th>招牌元氣</th>
+              <th>素香香鬆</th>
+              <th>泰式打拋猴菇</th>
+              <th>合計份數</th>
+              <th>加購費用</th>
+            </tr>
+          </thead>
+          <tbody id="tbl-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div>
+
+<script>
+const SHEET_ID = '1ePjody_xNLAvfMMCecS25fYWXEYMr-Y5IflLM1Fk5O8';
+const GID      = '627299729';
+const URL      = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${GID}`;
+
+let allRows = [];
+
+function parsePortions(v) {
+  if (!v || v === '無') return 0;
+  if (v === '1份') return 1;
+  if (v === '2份') return 2;
+  return parseInt(v) || 0;
+}
+
+async function loadData() {
+  try {
+    const res  = await fetch(URL);
+    const text = await res.text();
+    const json = JSON.parse(text.replace(/^.*?setResponse\(/, '').replace(/\);?\s*$/, ''));
+    const rows = json.table.rows;
+
+    allRows = rows.map((r, idx) => {
+      const c = i => (r.c[i] && r.c[i].v != null) ? r.c[i].v : '';
+      const g  = parsePortions(c(6));
+      const h  = parsePortions(c(7));
+      const ii = parsePortions(c(8));
+      const total = g + h + ii;
+      const paid  = Math.max(0, total - 1);
+      return {
+        idx: idx + 1,
+        identity: c(1) || '未填',
+        introducer: c(2),
+        name: c(3) || c(2) || '—',
+        rawG: c(6) || '無', rawH: c(7) || '無', rawI: c(8) || '無',
+        g, h, ii, total, paid
+      };
+    });
+
+    renderStats();
+    renderMeals();
+    renderTable(allRows);
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+    document.getElementById('lastUpdate').textContent =
+      '最後更新：' + new Date().toLocaleString('zh-TW');
+  } catch(e) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error').style.display = 'block';
+    document.getElementById('error').textContent = '❌ 載入失敗：' + e.message;
+  }
+}
+
+function renderStats() {
+  const total = allRows.length;
+  document.getElementById('c-total').textContent = total;
+
+  const counts = {};
+  allRows.forEach(r => counts[r.identity] = (counts[r.identity] || 0) + 1);
+
+  ['幹部','學員','幹部親友','學員親友'].forEach(k => {
+    const n = counts[k] || 0;
+    document.getElementById('c-' + k).textContent = n;
+    document.getElementById('p-' + k).textContent = total ? Math.round(n/total*100) + '%' : '';
+  });
+
+  // Identity bar
+  const colors = { '幹部': 'var(--amber)', '學員': 'var(--green)', '幹部親友': 'var(--purple)', '學員親友': 'var(--teal)' };
+  const bar = document.getElementById('id-bar');
+  bar.innerHTML = Object.entries(counts).map(([k,n]) =>
+    `<div class="id-bar-seg" style="flex:${n};background:${colors[k]||'#555'}" title="${k}: ${n}人">
+       ${n >= 3 ? k + ' ' + n : ''}</div>`
+  ).join('');
+}
+
+function renderMeals() {
+  const mealDefs = [
+    { key: 'g',  name: '招牌元氣',     color: '#f97316' },
+    { key: 'h',  name: '素香香鬆',     color: '#22c55e' },
+    { key: 'ii', name: '泰式打拋猴菇', color: '#a855f7' },
+  ];
+  const total = allRows.length;
+
+  let totalPortions = 0, paidPortions = 0, freePpl = 0;
+  allRows.forEach(r => { totalPortions += r.total; paidPortions += r.paid; if (r.total >= 1) freePpl++; });
+
+  // Meal breakdown
+  const grid = document.getElementById('meal-grid');
+  grid.innerHTML = mealDefs.map(m => {
+    const counts = {};
+    allRows.forEach(r => {
+      const raw = r['raw' + m.key.toUpperCase().replace('II','I')] || '無';
+      // fix key mapping
+      const rawVal = m.key === 'g' ? r.rawG : m.key === 'h' ? r.rawH : r.rawI;
+      counts[rawVal] = (counts[rawVal] || 0) + 1;
+    });
+    const portionTotal = allRows.reduce((s,r) => s + r[m.key], 0);
+    const opts = ['無','1份','2份'];
+    const maxC = Math.max(...opts.map(o => counts[o]||0), 1);
+    return `<div class="meal-card">
+      <div class="meal-name" style="color:${m.color}">🍱 ${m.name}</div>
+      ${opts.map(o => {
+        const n = counts[o] || 0;
+        return `<div class="meal-bar-wrap">
+          <div class="meal-bar-label"><span>${o}</span><span>${n} 人</span></div>
+          <div class="meal-bar-bg"><div class="meal-bar-fill" style="width:${Math.round(n/maxC*100)}%;background:${m.color}"></div></div>
+        </div>`;
+      }).join('')}
+      <div style="margin-top:12px;font-size:.8rem;color:var(--sub)">合計 <b style="color:${m.color}">${portionTotal}</b> 份</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('m-total-portions').textContent = totalPortions;
+  document.getElementById('m-free').textContent = freePpl;
+  document.getElementById('m-paid-portions').textContent = paidPortions;
+  document.getElementById('m-paid-amount').textContent = (paidPortions * 70).toLocaleString();
+}
+
+function identityTag(id) {
+  const cls = ['幹部','學員','幹部親友','學員親友'].includes(id) ? 'tag-'+id : 'tag-幹部';
+  return `<span class="identity-tag ${cls}">${id}</span>`;
+}
+
+function renderTable(rows) {
+  const tbody = document.getElementById('tbl-body');
+  tbody.innerHTML = rows.map(r =>
+    `<tr>
+      <td style="color:var(--dim)">${r.idx}</td>
+      <td style="font-weight:600">${r.name}</td>
+      <td>${identityTag(r.identity)}</td>
+      <td style="color:var(--sub)">${r.introducer || '—'}</td>
+      <td>${r.rawG === '無' ? '<span class="tag-無">無</span>' : r.rawG}</td>
+      <td>${r.rawH === '無' ? '<span class="tag-無">無</span>' : r.rawH}</td>
+      <td>${r.rawI === '無' ? '<span class="tag-無">無</span>' : r.rawI}</td>
+      <td style="font-weight:700;color:${r.total>1?'var(--amber)':'var(--sub)'}">${r.total > 0 ? r.total + ' 份' : '—'}</td>
+      <td>${r.paid > 0 ? `<span class="tag-paid">+${r.paid * 70} 元</span>` : '—'}</td>
+    </tr>`
+  ).join('');
+  document.getElementById('tbl-count').textContent = `顯示 ${rows.length} / ${allRows.length} 筆`;
+}
+
+function filterTable() {
+  const q  = document.getElementById('searchInput').value.toLowerCase();
+  const id = document.getElementById('identityFilter').value;
+  const filtered = allRows.filter(r =>
+    (!q  || r.name.includes(q) || (r.introducer||'').includes(q)) &&
+    (!id || r.identity === id)
+  );
+  renderTable(filtered);
+}
+
+loadData();
+</script>
+</body>
+</html>
