@@ -631,6 +631,9 @@
         }
         generateAdviceV3();
         renderComputexPanel();
+        if (gFocusComputexYear !== null) {
+            document.getElementById('chart').scrollIntoView({ behavior: 'instant', block: 'start' });
+        }
     }
 
     function generateAdviceV3() {
@@ -1203,17 +1206,29 @@
     }
 
     function focusComputex(year) {
-        if (!globalIndicatorData || globalIndicatorData.length === 0) return;
         const isSame = gFocusComputexYear === year;
         gFocusComputexYear = isSame ? null : year;
-        // 根據年份決定要顯示的天數（確保前後各有足夠資料）
+
         if (!isSame) {
             const daysNeeded = { 2023: 900, 2024: 550, 2025: 365, 2026: 240 };
             document.getElementById('display-days').value = String(daysNeeded[year] || 365);
+
+            const evt = COMPUTEX_EVENTS.find(e => e.year === year);
+            // 先把 lastSelectedDate 鎖定在展覽開始日，fetchStockData 完成後 processAndRender 會自動帶入
+            if (evt) lastSelectedDate = evt.start;
+
+            const hasData = evt && globalIndicatorData.some(d => d.date <= evt.start && d.date >= evt.start.substring(0,4)+'-01-01');
+            if (!hasData) {
+                // 資料不足，重新從 API 抓取（gFocusComputexYear 已設好，fetch 完後會自動置中）
+                renderComputexPanel();
+                fetchStockData();
+                return;
+            }
         }
+
         processAndRender();
         renderComputexPanel();
-        // 置中後跳到電腦展開始日
+
         if (!isSame) {
             const evt = COMPUTEX_EVENTS.find(e => e.year === year);
             if (evt) {
@@ -1221,7 +1236,7 @@
                              || globalProcessedData[Math.floor(globalProcessedData.length / 2)];
                 if (nearest) lockDate(nearest.date);
             }
-            document.getElementById('chart').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            document.getElementById('chart').scrollIntoView({ behavior: 'instant', block: 'start' });
         }
     }
 
