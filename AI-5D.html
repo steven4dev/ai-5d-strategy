@@ -374,19 +374,20 @@
     
     let stockDict = [];
 
-    // 指數 & 熱門 ETF 固定置頂，搜尋「大盤」「加權」「0050」等皆可找到
+    // 指數 & ETF 固定置頂，搜尋代碼或名稱關鍵字皆可找到
     const PINNED_SYMBOLS = [
         { id: 'TAIEX',  name: '加權指數(大盤)' },
         { id: '0050',   name: '元大台灣50' },
-        { id: '0056',   name: '元大高股息' },
-        { id: '00878',  name: '國泰永續高股息' },
-        { id: '006208', name: '富邦台50' },
-        { id: '00919',  name: '群益台灣精選高息' },
-        { id: '00881',  name: '國泰台灣5G+' },
+        { id: '0052',   name: '富邦科技' },
+        { id: '00735',  name: '國泰臺灣Smart' },
+        { id: '00830',  name: '國泰費城半導體' },
+        { id: '00935',  name: '野村臺灣創新科技50' },
+        { id: '00981A', name: '主動統一台股增長' },
+        { id: '00988A', name: '主動統一全球創新' },
     ];
 
     async function fetchStockList() {
-        const _cacheKey = 'tw_stock_dict_v3_2', _cacheDateKey = 'tw_stock_date_v3_2';
+        const _cacheKey = 'tw_stock_dict_v3_3', _cacheDateKey = 'tw_stock_date_v3_3';
         const _today = new Date().toISOString().split('T')[0];
         try {
             if(sessionStorage.getItem(_cacheDateKey)===_today && sessionStorage.getItem(_cacheKey)) {
