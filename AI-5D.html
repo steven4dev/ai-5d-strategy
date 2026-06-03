@@ -126,16 +126,19 @@
             </div>
             <!-- 開關2 -->
             <div class="col-span-2 md:col-span-2 flex flex-col items-center text-center">
-                <label class="block text-[10px] font-bold text-slate-500 mb-0.5 w-full text-center">季線(60) / 年線(240) / 電腦展</label>
+                <label class="block text-[10px] font-bold text-slate-500 mb-0.5 w-full text-center">季線 / 年線 / 電腦展 / 大盤</label>
                 <div class="flex gap-1 w-full justify-center">
-                    <div class="flex items-center justify-center h-[32px] w-full bg-slate-900 border border-slate-700 rounded-md">
+                    <div class="flex items-center justify-center h-[32px] w-full bg-slate-900 border border-slate-700 rounded-md" title="季線(60MA)">
                         <label class="relative inline-flex items-center justify-center cursor-pointer"><input type="checkbox" id="ma60-toggle" class="sr-only peer" checked onchange="toggleSettings()"><div class="ios-switch peer-checked:bg-green-500"></div></label>
                     </div>
-                    <div class="flex items-center justify-center h-[32px] w-full bg-slate-900 border border-slate-700 rounded-md">
+                    <div class="flex items-center justify-center h-[32px] w-full bg-slate-900 border border-slate-700 rounded-md" title="年線(240MA)">
                         <label class="relative inline-flex items-center justify-center cursor-pointer"><input type="checkbox" id="ma240-toggle" class="sr-only peer" checked onchange="toggleSettings()"><div class="ios-switch peer-checked:bg-rose-500"></div></label>
                     </div>
                     <div class="flex items-center justify-center h-[32px] w-full bg-slate-900 border border-slate-700 rounded-md" title="Computex 電腦展事件帶">
                         <label class="relative inline-flex items-center justify-center cursor-pointer"><input type="checkbox" id="computex-toggle" class="sr-only peer" checked onchange="toggleSettings()"><div class="ios-switch peer-checked:bg-yellow-500"></div></label>
+                    </div>
+                    <div class="flex items-center justify-center h-[32px] w-full bg-slate-900 border border-slate-700 rounded-md" title="加權指數(大盤)走勢疊加">
+                        <label class="relative inline-flex items-center justify-center cursor-pointer"><input type="checkbox" id="taiex-toggle" class="sr-only peer" onchange="toggleSettings()"><div class="ios-switch peer-checked:bg-cyan-500"></div></label>
                     </div>
                 </div>
             </div>
@@ -1425,6 +1428,15 @@
         tr.push({x:data.map(d=>d.date),y:data.map(d=>d.anchoredVwap),type:'scatter',mode:'lines',name:'VWAP',line:{color:'#d8b4fe',width:2},hoverinfo:hov}, {x:data.map(d=>d.date),y:data.map(d=>d.ceiling),type:'scatter',mode:'lines',name:'天',line:{color:'#fb7185',width:1,dash:'dash'},hoverinfo:hov}, {x:data.map(d=>d.date),y:data.map(d=>d.sma),type:'scatter',mode:'lines',name:'均價',line:{color:'#3b82f6',width:2},hoverinfo:hov}, {x:data.map(d=>d.date),y:data.map(d=>d.sma22),type:'scatter',mode:'lines',name:'22MA',line:{color:'#fb923c',width:1.5},hoverinfo:hov}, {x:data.map(d=>d.date),y:data.map(d=>d.floor),type:'scatter',mode:'lines',name:'地',line:{color:'#34d399',width:1,dash:'dash'},hoverinfo:hov}, {x:data.map(d=>d.date),open:data.map(d=>d.open),high:data.map(d=>d.high),low:data.map(d=>d.low),close:data.map(d=>d.close),type:'candlestick',increasing:{line:{color:'#f43f5e'}},decreasing:{line:{color:'#10b981'}},hoverinfo:hov});
         if(document.getElementById('ma60-toggle').checked) tr.push({x:data.map(d=>d.date),y:data.map(d=>d.sma60),type:'scatter',mode:'lines',name:'60MA',line:{color:'#4ade80',width:2},hoverinfo:hov});
         if(document.getElementById('ma240-toggle').checked) tr.push({x:data.map(d=>d.date),y:data.map(d=>d.sma240),type:'scatter',mode:'lines',name:'240MA',line:{color:'#f43f5e',width:2.5},hoverinfo:hov});
+        if(document.getElementById('taiex-toggle')?.checked) {
+            const taiexY = data.map(d => d.taiex?.close ?? null);
+            tr.push({
+                x: data.map(d=>d.date), y: taiexY,
+                type:'scatter', mode:'lines', name:'大盤指數',
+                line:{color:'rgba(34,211,238,0.75)', width:1.5, dash:'dot'},
+                yaxis:'y8', hoverinfo: hov
+            });
+        }
 
         let bx=[], by=[], rx=[], ry=[], sx=[], sy=[], px=[], py=[], sqx=[], sqy=[], mx=[], my=[];
         data.forEach(d => {
@@ -1501,7 +1513,8 @@
             yaxis7:{title:{text:'RSI',font:{size:9,color:'#64748b'}}, domain:[0.18, 0.26], gridcolor:'#334155', side:'right', tickvals:[30,70], range:[0,100], tickformat:'.0f'},
             yaxis5:{title:{text:'VIX',font:{size:9,color:'#64748b'}}, domain:[0.09, 0.17], gridcolor:'#334155', side:'right', tickformat:'.2~f'},
             yaxis6:{title:{text:'油價',font:{size:9,color:'#64748b'}}, domain:[0.0, 0.08], gridcolor:'#334155', side:'right', tickformat:'.2~f'},
-            margin:{t:5,b:30,l:10,r:50}, showlegend:false, hovermode:'x', dragmode:'pan',
+            yaxis8:{overlaying:'y', side:'left', showgrid:false, tickfont:{color:'rgba(34,211,238,0.6)',size:9}, tickformat:',.0f', zeroline:false, visible: !!(document.getElementById('taiex-toggle')?.checked)},
+            margin:{t:5,b:30,l:document.getElementById('taiex-toggle')?.checked?45:10,r:50}, showlegend:false, hovermode:'x', dragmode:'pan',
             shapes: cxShapes, annotations: cxAnnotations
         };
         gComputexShapes = cxShapes;
