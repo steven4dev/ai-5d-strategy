@@ -374,9 +374,9 @@
     
     let stockDict = [];
 
-    // ETF 固定置頂，搜尋代碼或名稱關鍵字皆可找到
-    // 大盤加權指數(TAIEX) 請使用圖表右上方青色【大盤】疊加開關查看
+    // 指數 & ETF 固定置頂，搜尋代碼或名稱關鍵字皆可找到
     const PINNED_SYMBOLS = [
+        { id: 'TAIEX',  name: '加權指數(大盤)' },
         { id: '0050',   name: '元大台灣50' },
         { id: '0052',   name: '富邦科技' },
         { id: '00735',  name: '國泰臺灣Smart' },
@@ -387,7 +387,7 @@
     ];
 
     async function fetchStockList() {
-        const _cacheKey = 'tw_stock_dict_v3_3', _cacheDateKey = 'tw_stock_date_v3_3';
+        const _cacheKey = 'tw_stock_dict_v3_4', _cacheDateKey = 'tw_stock_date_v3_4';
         const _today = new Date().toISOString().split('T')[0];
         try {
             if(sessionStorage.getItem(_cacheDateKey)===_today && sessionStorage.getItem(_cacheKey)) {
@@ -1105,11 +1105,15 @@
             if (!resPrice.ok) throw new Error("API Error"); const jPrice = await resPrice.json(); if (!jPrice.data || !jPrice.data.length) throw new Error("查無股價資料");
             updateStatus('price', 'ok', '股價: OK');
 
-            let stockName = symbol, instMap = {}, taiexMap = {}, vixMap = {}, oilMap = {};
+            const isTaiex = (symbol === 'TAIEX');
+            let stockName = isTaiex ? '加權指數(大盤)' : symbol;
+            let instMap = {}, taiexMap = {}, vixMap = {}, oilMap = {};
+
+            // TAIEX 作主角時：跳過重複的 TAIEX 次要請求 & 跳過法人（節省 API 配額）
             const pArr = await Promise.allSettled([
-                fetch(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockInfo&data_id=${symbol}&token=${FINMIND_TOKEN}`),
-                fetch(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id=${symbol}&start_date=${startStr}&token=${FINMIND_TOKEN}`),
-                fetch(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id=TAIEX&start_date=${startStr}&token=${FINMIND_TOKEN}`),
+                isTaiex ? Promise.resolve({ok:true, json:()=>({data:[]})}) : fetch(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockInfo&data_id=${symbol}&token=${FINMIND_TOKEN}`),
+                isTaiex ? Promise.resolve({ok:true, json:()=>({data:[]})}) : fetch(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id=${symbol}&start_date=${startStr}&token=${FINMIND_TOKEN}`),
+                isTaiex ? Promise.resolve({ok:true, json:()=>({data: jPrice.data})}) : fetch(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id=TAIEX&start_date=${startStr}&token=${FINMIND_TOKEN}`),
                 fetch(`https://api.finmindtrade.com/api/v4/data?dataset=USStockPrice&data_id=^VIX&start_date=${startStr}&token=${FINMIND_TOKEN}`),
                 fetch(`https://api.finmindtrade.com/api/v4/data?dataset=USStockPrice&data_id=USO&start_date=${startStr}&token=${FINMIND_TOKEN}`)
             ]);
@@ -1124,7 +1128,7 @@
                         else if(i.name.indexOf('投信')!==-1 || i.name.indexOf('Trust')!==-1) instMap[i.date].trust += net;
                         else if(i.name.indexOf('自營')!==-1 || i.name.indexOf('Dealer')!==-1) instMap[i.date].dealer += net;
                     }); updateStatus('inst', 'ok', '法人: OK');
-                } else updateStatus('inst', 'warn', '法人: 無資料');
+                } else updateStatus('inst', isTaiex ? 'warn' : 'warn', isTaiex ? '法人: 指數無此項' : '法人: 無資料');
             }
             if (pArr[2].status==='fulfilled') {
                 const j = await pArr[2].value.json(); if(j.data && j.data.length) {
