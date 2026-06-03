@@ -126,13 +126,16 @@
             </div>
             <!-- 開關2 -->
             <div class="col-span-2 md:col-span-2 flex flex-col items-center text-center">
-                <label class="block text-[10px] font-bold text-slate-500 mb-0.5 w-full text-center">季線(60) / 年線(240)</label>
+                <label class="block text-[10px] font-bold text-slate-500 mb-0.5 w-full text-center">季線(60) / 年線(240) / 電腦展</label>
                 <div class="flex gap-1 w-full justify-center">
                     <div class="flex items-center justify-center h-[32px] w-full bg-slate-900 border border-slate-700 rounded-md">
                         <label class="relative inline-flex items-center justify-center cursor-pointer"><input type="checkbox" id="ma60-toggle" class="sr-only peer" checked onchange="toggleSettings()"><div class="ios-switch peer-checked:bg-green-500"></div></label>
                     </div>
                     <div class="flex items-center justify-center h-[32px] w-full bg-slate-900 border border-slate-700 rounded-md">
                         <label class="relative inline-flex items-center justify-center cursor-pointer"><input type="checkbox" id="ma240-toggle" class="sr-only peer" checked onchange="toggleSettings()"><div class="ios-switch peer-checked:bg-rose-500"></div></label>
+                    </div>
+                    <div class="flex items-center justify-center h-[32px] w-full bg-slate-900 border border-slate-700 rounded-md" title="Computex 電腦展事件帶">
+                        <label class="relative inline-flex items-center justify-center cursor-pointer"><input type="checkbox" id="computex-toggle" class="sr-only peer" checked onchange="toggleSettings()"><div class="ios-switch peer-checked:bg-yellow-500"></div></label>
                     </div>
                 </div>
             </div>
@@ -159,6 +162,9 @@
                         <option value="60" selected>60天</option>
                         <option value="120">120天</option>
                         <option value="240">240天</option>
+                        <option value="365">365天(含25展)</option>
+                        <option value="550">550天(含24展)</option>
+                        <option value="900">900天(含23展)</option>
                     </select>
                     <input type="number" id="chart-height" value="650" class="input-box text-xs tabular-nums text-center" placeholder="高">
                 </div>
@@ -202,6 +208,30 @@
         <div id="loading" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-slate-900/80 rounded-xl backdrop-blur-sm"><div class="flex flex-col items-center justify-center"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-400 mb-2"></div><div class="text-xs text-indigo-300 text-center">狀態機運算中...</div></div></div>
         <div id="chart" style="width:100%; height:650px;"></div>
         <p id="chart-info-text" class="text-[10px] text-slate-400 text-center mt-1 pb-1 font-mono"><i class="fa-solid fa-hand-pointer mr-1"></i>點擊圖表鎖定日期看細節</p>
+    </div>
+
+    <!-- Computex 歷年走勢分析面板 -->
+    <div id="computex-panel" class="mt-2 dark-card p-3 hidden">
+        <div class="flex items-center justify-between mb-2 border-b border-slate-700 pb-2">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-computer text-yellow-400"></i>
+                <span class="font-bold text-yellow-300 text-sm">Computex 歷年電腦展走勢分析</span>
+            </div>
+            <span class="text-[10px] text-slate-500">推測 2026 展後走勢參考</span>
+        </div>
+        <div id="computex-cards" class="grid grid-cols-1 md:grid-cols-2 gap-2"></div>
+        <div class="mt-3 p-2.5 rounded-lg border border-yellow-500/30 bg-yellow-900/10">
+            <div class="flex items-center gap-1.5 mb-1.5">
+                <i class="fa-solid fa-lightbulb text-yellow-400 text-xs"></i>
+                <span class="font-bold text-yellow-300 text-[11px]">2026 展後走勢推測</span>
+            </div>
+            <ul class="text-[10px] text-slate-300 space-y-1 leading-relaxed list-disc list-inside ml-1">
+                <li><span class="text-yellow-200 font-semibold">高基期風險：</span>展前 5 月已單月大漲 +14.92%，歷史上展前漲幅最大的 2023 年（+25.6%/5 個月）展後仍有 7 月再高點，但 Q3 季節性淡季壓力確實浮現。</li>
+                <li><span class="text-emerald-300 font-semibold">多頭結構支撐：</span>若參考 2024 年模式（展前洗盤→展中復甦→展後主升），本波展後若能消化漲幅而非急跌，則主升段可能尚未結束。</li>
+                <li><span class="text-rose-300 font-semibold">關鍵觀察點：</span>展後 5 個交易日能否守住 44,000 平台；外資是否從淨買轉淨賣；AI 伺服器 Q3 訂單能見度是否如期釋出。</li>
+                <li><span class="text-indigo-300 font-semibold">策略建議：</span>高檔勿追，等待展後 3~5% 回調再佈局 AI 供應鏈核心；若跌破 42,000 則視為短波修正，不宜看空。</li>
+            </ul>
+        </div>
     </div>
 
     <!-- 資訊面板 -->
@@ -281,6 +311,46 @@
     const FINMIND_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJkYXRlIjoiMjAyNi0wMi0wOCAyMzoyODoyMSIsInVzZXJfaWQiOiJzdGV2ZW40ZGV2IiwiZW1haWwiOiJzdGV2ZW40ZGV2QGdtYWlsLmNvbSIsImlwIjoiMTExLjcxLjE4LjY5In0.HjXvn-fgUl_piw0GkPNZOwlebOUKPmPmUZTtCqk55b4"; 
     
     const fmt2 = (v) => (v == null || isNaN(v)) ? '--' : Number(Number(v).toFixed(2));
+
+    // ── Computex 歷年電腦展事件 ─────────────────────────────────────────────
+    const COMPUTEX_EVENTS = [
+        {
+            year: 2023, start: '2023-05-30', end: '2023-06-02',
+            label: 'Computex 2023', theme: 'ChatGPT AI元年',
+            preNote:  '展前 5 個月 TAIEX 自 13,300 急漲至 16,700（+25.6%），ChatGPT/H100 狂熱',
+            duringNote:'展中小幅整理，NVIDIA Jensen Huang 宣示 AI 拐點，台廠供應鏈沸騰',
+            postNote:  '展後續漲至 7 月高點 17,400，爾後波段回調至 10 月 15,500',
+            pattern:  '先漲後小整，事後仍有一波，但 Q3 季節性壓力明顯',
+            fillColor: 'rgba(251,191,36,0.22)', lineColor: 'rgba(251,191,36,0.9)'
+        },
+        {
+            year: 2024, start: '2024-06-03', end: '2024-06-07',
+            label: 'Computex 2024', theme: 'Blackwell / AI伺服器',
+            preNote:  '4 月首度突破 20,000，展前因地緣回調至 18,000～19,500 洗盤',
+            duringNote:'展中回升至 21,000+，Blackwell 架構與 CoWoS 封裝需求引爆供應鏈',
+            postNote:  '展後強力拉升，7 月觸及歷史新高 23,000，後進入回檔整理',
+            pattern:  '展前洗盤蓄力 → 事件催化 → 展後主升段，典型「吃貨完展出頭」',
+            fillColor: 'rgba(99,102,241,0.22)', lineColor: 'rgba(99,102,241,0.9)'
+        },
+        {
+            year: 2025, start: '2025-05-20', end: '2025-05-23',
+            label: 'Computex 2025', theme: 'Vera Rubin / 機器人 AI',
+            preNote:  '年初 23,000 起因關稅恐慌急殺至 18,000 以下，展前緩慢修復',
+            duringNote:'展中配合年線轉強，Vera Rubin GPU 與人形機器人成焦點，助攻反攻',
+            postNote:  '展後延續反彈，逐步回補年線上方，但成交量不及 2024 年熱度',
+            pattern:  '「落難英雄」型：展覽作為空頭修正後的轉折觸媒',
+            fillColor: 'rgba(52,211,153,0.22)', lineColor: 'rgba(52,211,153,0.9)'
+        },
+        {
+            year: 2026, start: '2026-06-02', end: '2026-06-05',
+            label: 'Computex 2026', theme: 'AI Together（現在進行式）',
+            preNote:  '5 月單月暴漲 5,806 點（+14.92%），收盤 44,733 再創歷史新高',
+            duringNote:'展中已站上 45,000～46,000，黃仁勳 GTC Taipei 旗艦演講，機器人狂潮',
+            postNote:  '仍在進行中，展後走勢為本次推測重點',
+            pattern:  '史上最強展前行情，高檔能否持續消化籌碼是關鍵',
+            fillColor: 'rgba(248,113,113,0.22)', lineColor: 'rgba(248,113,113,0.9)'
+        },
+    ];
     
     let currentSymbol = '2330';
     let lastSelectedDate = null;
@@ -294,6 +364,7 @@
     let globalTtmEps = null;
     let globalRawPriceData = [];
     let globalTsmAdr = null;
+    let gComputexShapes = [];
     let globalFuturesData = null;
     let isFetchingFutures = false;
     
@@ -543,6 +614,7 @@
             document.getElementById('floating-date-panel').classList.remove('hidden');
         }
         generateAdviceV3();
+        renderComputexPanel();
     }
 
     function generateAdviceV3() {
@@ -1114,7 +1186,47 @@
         document.getElementById('loading').classList.add('hidden');
     }
 
-    function toggleSettings() { if(globalProcessedData.length) { render(globalProcessedData, currentRenderParams.period, currentRenderParams.symbol, currentRenderParams.stockName, currentRenderParams.floorPct, currentRenderParams.ceilingPct, currentRenderParams.chartHeight); if(lastSelectedDate){ drawCrosshair(lastSelectedDate); updateInfoPanel(lastSelectedDate); } } }
+    function renderComputexPanel() {
+        const panel = document.getElementById('computex-panel');
+        const toggle = document.getElementById('computex-toggle');
+        if (!toggle || !toggle.checked) { panel.classList.add('hidden'); return; }
+        panel.classList.remove('hidden');
+
+        const colorMap = {
+            2023: { border: 'border-yellow-500/40',  bg: 'bg-yellow-900/10',  text: 'text-yellow-300',  badge: 'bg-yellow-900/40 text-yellow-300 border-yellow-500/40' },
+            2024: { border: 'border-indigo-500/40',  bg: 'bg-indigo-900/10',  text: 'text-indigo-300',  badge: 'bg-indigo-900/40 text-indigo-300 border-indigo-500/40' },
+            2025: { border: 'border-emerald-500/40', bg: 'bg-emerald-900/10', text: 'text-emerald-300', badge: 'bg-emerald-900/40 text-emerald-300 border-emerald-500/40' },
+            2026: { border: 'border-rose-500/40',    bg: 'bg-rose-900/10',    text: 'text-rose-300',    badge: 'bg-rose-900/40 text-rose-300 border-rose-500/40' },
+        };
+
+        const container = document.getElementById('computex-cards');
+        container.innerHTML = COMPUTEX_EVENTS.map(evt => {
+            const c = colorMap[evt.year] || colorMap[2023];
+            const isCurrentYear = evt.year === 2026;
+            return `
+            <div class="rounded-lg border ${c.border} ${c.bg} p-2.5">
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="font-bold ${c.text} text-[12px]"><i class="fa-solid fa-computer mr-1.5"></i>${evt.label}</span>
+                    <span class="text-[9px] px-1.5 py-0.5 rounded border ${c.badge}">${evt.theme}</span>
+                </div>
+                <div class="text-[9px] text-slate-500 font-mono mb-1.5">${evt.start} ～ ${evt.end}</div>
+                <div class="space-y-1 text-[10px]">
+                    <div><span class="text-slate-500 mr-1">展前：</span><span class="text-slate-300">${evt.preNote}</span></div>
+                    <div><span class="text-slate-500 mr-1">展中：</span><span class="text-slate-300">${evt.duringNote}</span></div>
+                    <div><span class="text-slate-500 mr-1">展後：</span><span class="${isCurrentYear ? 'text-rose-300 font-semibold' : 'text-slate-300'}">${evt.postNote}</span></div>
+                    <div class="mt-1.5 pt-1.5 border-t border-slate-700/50"><span class="text-yellow-400 font-semibold mr-1">規律：</span><span class="text-slate-400">${evt.pattern}</span></div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function toggleSettings() {
+        if(globalProcessedData.length) {
+            render(globalProcessedData, currentRenderParams.period, currentRenderParams.symbol, currentRenderParams.stockName, currentRenderParams.floorPct, currentRenderParams.ceilingPct, currentRenderParams.chartHeight);
+            if(lastSelectedDate){ drawCrosshair(lastSelectedDate); updateInfoPanel(lastSelectedDate); }
+        }
+        renderComputexPanel();
+    }
     
     function navigateDate(offset) { 
         if(!globalProcessedData.length) return; 
@@ -1131,19 +1243,19 @@
         generateAdviceV3();
     }
     
-    function drawCrosshair(dk) { 
-        if(!dk) return; 
+    function drawCrosshair(dk) {
+        if(!dk) return;
         const d = globalProcessedData.find(x => x.date === dk);
-        const shapes = [
+        const crosshairShapes = [
             { type: 'line', x0: dk, y0: 0, x1: dk, y1: 1, xref: 'x', yref: 'paper', line: { color: 'rgba(255,255,255,0.6)', width: 1.5 } }
         ];
         if (d) {
-            shapes.push({
-                type: 'line', x0: 0, x1: 1, y0: d.close, y1: d.close, xref: 'paper', yref: 'y', 
+            crosshairShapes.push({
+                type: 'line', x0: 0, x1: 1, y0: d.close, y1: d.close, xref: 'paper', yref: 'y',
                 line: { color: 'rgba(255,255,255,0.5)', width: 1, dash: 'dot' }
             });
         }
-        Plotly.relayout('chart', { shapes: shapes }); 
+        Plotly.relayout('chart', { shapes: [...gComputexShapes, ...crosshairShapes] });
     }
     
     function updateInfoPanel(dk) {
@@ -1285,9 +1397,43 @@
             {x:data.map(d=>d.date), y:data.map(d=>d.oil), type:'scatter', mode:'lines', name:'油價', line:{color:'#d97706', width:1.5}, yaxis:'y6', hoverinfo:hov}
         );
 
-        const lo = { 
-            paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)', font:{color:'#94a3b8',size:10}, 
-            xaxis:{rangeslider:{visible:false},gridcolor:'#334155',type:'category',tickmode:'array',tickvals:tv,ticktext:tt}, 
+        // ── Computex 事件帶 ────────────────────────────────────────────────────
+        const dateStrings = data.map(d => d.date);
+        const dataStart = dateStrings[0], dataEnd = dateStrings[dateStrings.length - 1];
+        const cxShapes = [], cxAnnotations = [];
+        if (document.getElementById('computex-toggle') && document.getElementById('computex-toggle').checked) {
+            COMPUTEX_EVENTS.forEach(evt => {
+                if (evt.end < dataStart || evt.start > dataEnd) return;
+                // 找到精確的開始/結束 index
+                const startIdx = dateStrings.findIndex(d => d >= evt.start);
+                const endIdxRev = [...dateStrings].reverse().findIndex(d => d <= evt.end);
+                const endIdx = endIdxRev === -1 ? dateStrings.length - 1 : dateStrings.length - 1 - endIdxRev;
+                if (startIdx === -1) return;
+                // 前後各留 10 個交易日視覺緩衝，讓區間在長時間軸上可見
+                const padded0 = dateStrings[Math.max(0, startIdx - 10)];
+                const padded1 = dateStrings[Math.min(dateStrings.length - 1, endIdx + 10)];
+                const labelX   = dateStrings[startIdx]; // 標籤仍指向真實開始日
+                cxShapes.push({
+                    type:'rect', xref:'x', yref:'paper',
+                    x0: padded0, x1: padded1, y0: 0, y1: 1,
+                    fillcolor: evt.fillColor,
+                    line: { color: evt.lineColor, width: 1.5 }
+                });
+                cxAnnotations.push({
+                    x: labelX, y: 0.985, xref:'x', yref:'paper',
+                    text: `<b>${evt.label}</b>`,
+                    showarrow: false,
+                    font: { color: evt.lineColor, size: 8.5 },
+                    yanchor: 'top', xanchor: 'left',
+                    bgcolor: 'rgba(15,23,42,0.8)', borderpad: 3,
+                    bordercolor: evt.lineColor, borderwidth: 1
+                });
+            });
+        }
+
+        const lo = {
+            paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)', font:{color:'#94a3b8',size:10},
+            xaxis:{rangeslider:{visible:false},gridcolor:'#334155',type:'category',tickmode:'array',tickvals:tv,ticktext:tt},
             yaxis: {title:{text:'價格',font:{size:9,color:'#64748b'}}, domain:[0.54, 1.0], gridcolor:'#334155', side:'right', tickformat:'.2~f'},
             yaxis2:{title:{text:'成交量',font:{size:9,color:'#64748b'}}, domain:[0.45, 0.53], gridcolor:'#334155', side:'right'},
             yaxis3:{title:{text:'KD',font:{size:9,color:'#64748b'}}, domain:[0.36, 0.44], gridcolor:'#334155', side:'right', tickvals:[20,80], range:[0,100], tickformat:'.2~f'},
@@ -1295,8 +1441,10 @@
             yaxis7:{title:{text:'RSI',font:{size:9,color:'#64748b'}}, domain:[0.18, 0.26], gridcolor:'#334155', side:'right', tickvals:[30,70], range:[0,100], tickformat:'.0f'},
             yaxis5:{title:{text:'VIX',font:{size:9,color:'#64748b'}}, domain:[0.09, 0.17], gridcolor:'#334155', side:'right', tickformat:'.2~f'},
             yaxis6:{title:{text:'油價',font:{size:9,color:'#64748b'}}, domain:[0.0, 0.08], gridcolor:'#334155', side:'right', tickformat:'.2~f'},
-            margin:{t:5,b:30,l:10,r:50}, showlegend:false, hovermode:'x', dragmode:'pan' 
+            margin:{t:5,b:30,l:10,r:50}, showlegend:false, hovermode:'x', dragmode:'pan',
+            shapes: cxShapes, annotations: cxAnnotations
         };
+        gComputexShapes = cxShapes;
         Plotly.newPlot('chart', tr, lo, {displayModeBar:true, displaylogo:false, responsive:true, modeBarButtonsToRemove:['select2d','lasso2d','autoScale2d']});
         
         const cD = document.getElementById('chart'); if(cD.removeAllListeners){ cD.removeAllListeners('plotly_click'); cD.removeAllListeners('plotly_hover'); }
