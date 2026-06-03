@@ -137,7 +137,7 @@
                     <div class="flex items-center justify-center h-[32px] w-full bg-slate-900 border border-slate-700 rounded-md" title="Computex 電腦展事件帶">
                         <label class="relative inline-flex items-center justify-center cursor-pointer"><input type="checkbox" id="computex-toggle" class="sr-only peer" checked onchange="toggleSettings()"><div class="ios-switch peer-checked:bg-yellow-500"></div></label>
                     </div>
-                    <div class="flex items-center justify-center h-[32px] w-full bg-slate-900 border border-slate-700 rounded-md" title="加權指數(大盤)走勢疊加">
+                    <div class="flex items-center justify-center h-[32px] w-full bg-slate-900 border border-slate-700 rounded-md" title="大盤加權指數疊加線（開啟後以青色虛線顯示於K線圖）">
                         <label class="relative inline-flex items-center justify-center cursor-pointer"><input type="checkbox" id="taiex-toggle" class="sr-only peer" onchange="toggleSettings()"><div class="ios-switch peer-checked:bg-cyan-500"></div></label>
                     </div>
                 </div>
@@ -374,9 +374,9 @@
     
     let stockDict = [];
 
-    // 指數 & ETF 固定置頂，搜尋代碼或名稱關鍵字皆可找到
+    // ETF 固定置頂，搜尋代碼或名稱關鍵字皆可找到
+    // 大盤加權指數(TAIEX) 請使用圖表右上方青色【大盤】疊加開關查看
     const PINNED_SYMBOLS = [
-        { id: 'TAIEX',  name: '加權指數(大盤)' },
         { id: '0050',   name: '元大台灣50' },
         { id: '0052',   name: '富邦科技' },
         { id: '00735',  name: '國泰臺灣Smart' },
