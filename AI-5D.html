@@ -1228,7 +1228,7 @@
             globalIndicatorData = data;
             processAndRender();
             
-            if (document.getElementById('fund-toggle').checked) fetchFundamentals(symbol);
+            if (document.getElementById('fund-toggle').checked && symbol !== 'TAIEX') fetchFundamentals(symbol);
             
         } catch (e) { document.getElementById('loading').classList.add('hidden'); alert(e.message); }
         document.getElementById('loading').classList.add('hidden');
