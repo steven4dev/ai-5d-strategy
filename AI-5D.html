@@ -904,16 +904,16 @@
             </div>`;
     }
 
-    const defaultFavs = ['2330', '8299', '8358', '3491', '0050', '0052', '00981A', '00988A', '00992A'];
-    let favorites = defaultFavs;
-    try { const saved = localStorage.getItem('stockFavs_v23'); if (saved) favorites = JSON.parse(saved); } catch(e) {}
+    const defaultFavs = ['TAIEX','8299','3491','2330','00685L','2308','3324','0050','0052','00403A','00735','00981A','00988A','00992A'];
+    let favorites = [...defaultFavs];
+    try { const saved = localStorage.getItem('stockFavs_v24'); if (saved) favorites = JSON.parse(saved); } catch(e) {}
     function initFavorites() { renderFavList(); updateFavIconState(); }
     
     function toggleFavorite() {
         const symbol = document.getElementById('symbol').value.trim();
         if (!symbol) return;
         if (favorites.includes(symbol)) favorites = favorites.filter(s => s !== symbol); else favorites.push(symbol);
-        try { localStorage.setItem('stockFavs_v23', JSON.stringify(favorites)); } catch(e) {}
+        try { localStorage.setItem('stockFavs_v24', JSON.stringify(favorites)); } catch(e) {}
         renderFavList(); updateFavIconState();
     }
     
