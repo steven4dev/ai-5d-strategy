@@ -31,6 +31,27 @@
     </style>
 </head>
 <body class="min-h-screen pb-24">
+<style>
+.site-nav-bar{
+  display:flex;justify-content:center;flex-wrap:wrap;gap:.5rem 1.2rem;
+  padding:.45rem 1rem;background:rgba(0,0,0,.45);
+  border-bottom:1px solid rgba(255,255,255,.08);font-size:.76rem;
+  font-family:"Segoe UI",system-ui,sans-serif;
+}
+.site-nav-bar a{
+  color:#94a3b8;text-decoration:none;font-weight:600;
+  padding:.15rem .5rem;border-radius:4px;transition:color .15s,background .15s;
+}
+.site-nav-bar a:hover{color:#fff;background:rgba(255,255,255,.08);}
+.site-nav-bar a.active{color:#4f8ef7;background:rgba(79,142,247,.12);}
+</style>
+<nav class="site-nav-bar">
+  <a href="https://steven4dev.github.io/ETF-dca-backtest/">📊 ETF 回測</a>
+  <a href="https://steven4dev.github.io/taiwan-market-radar/">📡 台股雷達</a>
+  <a href="https://steven4dev.github.io/ai-5d-strategy/AI-5D.html">🎯 AI-5D 策略</a>
+  <a href="https://steven4dev.github.io/ai-5d-strategy/feigu.html" class="active">🚀 飆股雷達</a>
+</nav>
+
 
 <!-- ═══ 頂部導航列 ═══ -->
 <div class="sticky top-0 z-50 bg-slate-900/95 backdrop-blur border-b border-slate-700 px-3 pt-2 pb-2">
