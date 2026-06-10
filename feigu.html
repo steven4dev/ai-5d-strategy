@@ -435,6 +435,7 @@
         feiguSave(); renderFeiguPanel();
     }
     function feiguAddPreset(key) {
+        feiguPool = [];
         if (key === 'fav') {
             try {
                 JSON.parse(localStorage.getItem(AI5D_FAVS_KEY) || '[]')
@@ -442,7 +443,7 @@
                     .forEach(s => { if (!feiguPool.includes(s)) feiguPool.push(s); });
             } catch(e) {}
         } else {
-            (FEIGU_PRESETS[key] || []).forEach(s => { if (!feiguPool.includes(s)) feiguPool.push(s); });
+            (FEIGU_PRESETS[key] || []).forEach(s => feiguPool.push(s));
         }
         feiguSave(); renderFeiguPoolTab();
     }
