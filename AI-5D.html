@@ -47,6 +47,23 @@
         #search-dropdown::-webkit-scrollbar-track { background: #1e293b; border-radius: 4px; }
         #search-dropdown::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
         #search-dropdown::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        /* ── 飆股系統 ─────────────────────────────── */
+        #strategy-panel { position:fixed; inset:0; background:#0f172a; z-index:800; overflow-y:auto; display:flex; flex-direction:column; }
+        .strat-tab { padding:.25rem .65rem; font-size:.72rem; font-weight:700; border-radius:6px; color:#64748b; background:transparent; border:1px solid transparent; cursor:pointer; transition:all .15s; white-space:nowrap; }
+        .strat-tab.active { color:#fbbf24; background:rgba(251,191,36,.12); border-color:rgba(251,191,36,.4); }
+        .strat-tab:hover:not(.active) { color:#94a3b8; background:rgba(255,255,255,.05); }
+        .strat-content { }
+        #feigu-poll-btn.poll-active { background:#065f46; border-color:#10b981; color:#34d399; }
+        .feigu-state-0 { color:#93c5fd; background:rgba(59,130,246,.12); border:1px solid rgba(59,130,246,.35); }
+        .feigu-state-1 { color:#fdba74; background:rgba(249,115,22,.12); border:1px solid rgba(249,115,22,.35); }
+        .feigu-state-2 { color:#86efac; background:rgba(34,197,94,.12); border:1px solid rgba(34,197,94,.35); }
+        .feigu-state-3 { color:#fca5a5; background:rgba(239,68,68,.18); border:1px solid rgba(239,68,68,.5); animation:feiguPulse 1.2s infinite; }
+        .feigu-state-x { color:#475569; background:rgba(71,85,105,.12); border:1px solid rgba(71,85,105,.3); }
+        @keyframes feiguPulse { 0%,100%{ opacity:1; } 50%{ opacity:.55; } }
+        #strategy-panel::-webkit-scrollbar { width:5px; }
+        #strategy-panel::-webkit-scrollbar-track { background:#0f172a; }
+        #strategy-panel::-webkit-scrollbar-thumb { background:#334155; border-radius:4px; }
     </style>
 </head>
 <body class="min-h-screen pb-24">
@@ -193,8 +210,11 @@
                 </div>
             </div>
 
-            <button onclick="fetchStockData()" class="col-span-4 md:col-span-10 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md text-sm font-bold shadow-lg shadow-indigo-900/20 active:scale-95 mt-1 h-[32px] flex items-center justify-center">
+            <button onclick="fetchStockData()" class="col-span-3 md:col-span-7 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md text-sm font-bold shadow-lg shadow-indigo-900/20 active:scale-95 mt-1 h-[32px] flex items-center justify-center">
                 <i class="fa-solid fa-rotate mr-2"></i>更新數據
+            </button>
+            <button onclick="openStrategyPanel()" class="col-span-1 md:col-span-3 bg-amber-600 hover:bg-amber-500 text-white rounded-md text-xs font-bold shadow-lg active:scale-95 mt-1 h-[32px] flex items-center justify-center gap-1">
+                <i class="fa-solid fa-fire text-amber-200"></i><span class="hidden sm:inline">飆股選股</span><span class="sm:hidden">飆股</span>
             </button>
         </div>
 
@@ -329,6 +349,222 @@
         <div class="dark-card p-2 flex flex-col items-center"><div class="text-xs font-bold text-emerald-300 text-center mb-1 w-full">月營收(千元)</div><div class="fund-chart-container w-full" id="chart-revenue"></div></div>
     </div>
 </div>
+
+<!-- ════════════════════════════════════════════════════
+     飆股續勢戰法選股系統  (全螢幕面板)
+     ════════════════════════════════════════════════════ -->
+<div id="strategy-panel" class="hidden">
+
+  <!-- 固定頂列 -->
+  <div class="sticky top-0 z-10 bg-slate-900/95 backdrop-blur border-b border-slate-700 px-3 pt-2 pb-2">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-xl">🔥</span>
+        <div>
+          <div class="font-bold text-white text-sm leading-tight">飆股續勢戰法選股系統</div>
+          <div class="text-[10px] text-slate-500">朱家泓策略 · 多頭初升段自動篩選引擎</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <div id="strat-clock" class="font-mono text-amber-300 text-xs tabular-nums hidden sm:block"></div>
+        <button onclick="closeStrategyPanel()" class="text-slate-400 hover:text-white w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-700">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+    </div>
+    <!-- 分頁列 -->
+    <div class="flex gap-1 mt-2 overflow-x-auto pb-0.5">
+      <button class="strat-tab active" data-tab="pool" onclick="switchStratTab('pool')">📋 選股池</button>
+      <button class="strat-tab" data-tab="watchlist" onclick="switchStratTab('watchlist')">🎯 監控狀態</button>
+      <button class="strat-tab" data-tab="signals" onclick="switchStratTab('signals')">🚨 進場訊號</button>
+      <button class="strat-tab" data-tab="rules" onclick="switchStratTab('rules')">📖 策略說明</button>
+    </div>
+  </div>
+
+  <div class="p-3 flex-1">
+
+    <!-- ── Tab: 選股池 ── -->
+    <div id="strat-tab-pool" class="strat-content">
+      <!-- 操作列 -->
+      <div class="dark-card p-3 mb-2">
+        <div class="flex items-center gap-1 mb-2">
+          <input id="feigu-add-input" type="text" class="input-box flex-1 text-xs" placeholder="輸入股票代碼，如 2330"
+            onkeydown="if(event.key==='Enter')feiguAddToPool()"
+            oninput="feiguSearchInput(this.value)" autocomplete="off">
+          <ul id="feigu-search-dropdown" class="absolute mt-8 w-48 bg-slate-800 border border-slate-600 rounded-md shadow-2xl z-[999] hidden max-h-40 overflow-y-auto text-xs divide-y divide-slate-700" style="position:fixed;"></ul>
+          <button onclick="feiguAddToPool()" class="bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold px-3 h-[32px] rounded-md shrink-0">
+            <i class="fa-solid fa-plus mr-1"></i>加入
+          </button>
+        </div>
+        <!-- 快速加入 preset -->
+        <div class="text-[10px] text-slate-500 mb-1">快速加入預設清單：</div>
+        <div class="flex flex-wrap gap-1">
+          <button onclick="feiguAddPreset('ai')" class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded border border-slate-600">🤖 AI/算力</button>
+          <button onclick="feiguAddPreset('semi')" class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-blue-300 rounded border border-slate-600">💡 半導體</button>
+          <button onclick="feiguAddPreset('etf')" class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded border border-slate-600">📊 ETF</button>
+          <button onclick="feiguAddPreset('fav')" class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-purple-300 rounded border border-slate-600">⭐ 自選清單</button>
+          <button onclick="feiguClearPool()" class="text-[9px] px-2 py-1 bg-rose-900/40 hover:bg-rose-900/60 text-rose-400 rounded border border-rose-700/40 ml-auto">🗑 清空</button>
+        </div>
+      </div>
+      <!-- 掃描控制 -->
+      <div class="dark-card p-3 mb-2">
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-xs font-bold text-slate-300">階段一：技術面三大條件篩選</div>
+          <span id="feigu-pass-count" class="text-[10px] text-slate-500">0/0 通過</span>
+        </div>
+        <div class="text-[10px] text-slate-500 mb-2 leading-relaxed">
+          條件：① 5MA>10MA>20MA>60MA 且各線斜率向上　② 週收盤>20週均(以100MA近似)　③ 近期自低點初升段
+        </div>
+        <button id="feigu-scan-btn" onclick="runPhase1Scan()" class="w-full bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold py-2 rounded-md flex items-center justify-center gap-2 active:scale-95">
+          <i class="fa-solid fa-filter"></i>執行選股（階段一）
+        </button>
+        <!-- 進度列 -->
+        <div id="feigu-progress-wrap" class="hidden mt-2">
+          <div class="flex justify-between text-[10px] text-slate-500 mb-1">
+            <span>篩選進度</span><span id="feigu-scan-progress-text">0/0</span>
+          </div>
+          <div class="w-full bg-slate-700 rounded-full h-2">
+            <div id="feigu-scan-progress" class="bg-amber-500 h-2 rounded-full transition-all duration-200" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+      <!-- 個股清單 -->
+      <div class="dark-card p-2">
+        <div class="text-[10px] font-bold text-slate-400 mb-2 px-1">選股池清單</div>
+        <div id="feigu-pool-list"></div>
+      </div>
+    </div>
+
+    <!-- ── Tab: 監控狀態 ── -->
+    <div id="strat-tab-watchlist" class="strat-content hidden">
+      <div class="dark-card p-3 mb-2">
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-xs font-bold text-slate-300">階段二：狀態機追蹤</div>
+          <button onclick="updateStateMachines()" class="text-[10px] text-amber-400 hover:text-amber-300 border border-amber-700/50 px-2 py-0.5 rounded">
+            <i class="fa-solid fa-sync mr-1"></i>刷新狀態
+          </button>
+        </div>
+        <!-- 狀態說明 -->
+        <div class="flex flex-wrap gap-1 mb-2">
+          <span class="feigu-state-0 text-[9px] px-2 py-0.5 rounded font-bold">State 0 觀察中</span>
+          <span class="feigu-state-1 text-[9px] px-2 py-0.5 rounded font-bold">State 1 回檔中</span>
+          <span class="feigu-state-2 text-[9px] px-2 py-0.5 rounded font-bold">State 2 守穩量縮</span>
+          <span class="feigu-state-3 text-[9px] px-2 py-0.5 rounded font-bold">訊號觸發</span>
+        </div>
+      </div>
+      <div class="dark-card overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="border-b border-slate-700 bg-slate-800/60">
+                <th class="px-2 py-2 text-left text-[10px] text-slate-400 font-bold">代碼</th>
+                <th class="px-2 py-2 text-left text-[10px] text-slate-400 font-bold">狀態</th>
+                <th class="px-2 py-2 text-right text-[10px] text-slate-400 font-bold">收盤</th>
+                <th class="px-2 py-2 text-right text-[10px] text-slate-400 font-bold">5MA</th>
+                <th class="px-2 py-2 text-right text-[10px] text-slate-400 font-bold">20MA</th>
+                <th class="px-2 py-2 text-left text-[10px] text-slate-400 font-bold">備注</th>
+              </tr>
+            </thead>
+            <tbody id="feigu-watchlist-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Tab: 進場訊號 ── -->
+    <div id="strat-tab-signals" class="strat-content hidden">
+      <!-- 自動監控控制 -->
+      <div class="dark-card p-3 mb-2">
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <div class="text-xs font-bold text-slate-300">步驟四：盤末轉強訊號（13:00-13:25）</div>
+            <div id="feigu-status-badge" class="text-[10px] text-slate-500 mt-0.5">⏹ 監控未啟動</div>
+          </div>
+          <button id="feigu-poll-btn" onclick="toggleFeiguPolling()"
+            class="text-xs font-bold px-3 py-1.5 rounded-md border border-slate-600 text-slate-300 hover:border-amber-500 hover:text-amber-300 transition-colors">
+            <i class="fa-solid fa-radar mr-1"></i>啟動監控
+          </button>
+        </div>
+        <!-- 6 條件說明 -->
+        <div class="grid grid-cols-2 gap-1 text-[9px] text-slate-400 bg-slate-900/40 p-2 rounded-lg border border-slate-800">
+          <span>① 價漲 &gt; 昨收</span>
+          <span>② 爆量 &gt; 5日均量且&gt;昨量</span>
+          <span>③ 紅K實體棒</span>
+          <span>④ 突破5日線</span>
+          <span>⑤ 突破昨高</span>
+          <span>⑥ KD 黃金交叉</span>
+        </div>
+        <div class="mt-2 text-[10px] text-amber-400/80 bg-amber-900/20 p-2 rounded border border-amber-700/30">
+          <i class="fa-solid fa-triangle-exclamation mr-1"></i>
+          訊號確認後，建議於 <strong>13:25–13:30</strong> 收盤前分批買進做多
+        </div>
+        <div class="mt-1 text-[10px] text-slate-500">
+          <button onclick="requestFeiguNotifPermission()" class="text-blue-400 hover:underline">
+            <i class="fa-solid fa-bell mr-1"></i>啟用瀏覽器推播通知
+          </button>
+        </div>
+      </div>
+      <!-- 訊號記錄 -->
+      <div class="dark-card overflow-hidden">
+        <div class="px-3 py-2 border-b border-slate-700 text-xs font-bold text-slate-300">進場訊號記錄</div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="border-b border-slate-700 bg-slate-800/60">
+                <th class="px-2 py-2 text-left text-[10px] text-slate-400 font-bold">標的/時間</th>
+                <th class="px-2 py-2 text-right text-[10px] text-slate-400 font-bold">現價</th>
+                <th class="px-2 py-2 text-center text-[10px] text-slate-400 font-bold">①②③④⑤⑥</th>
+                <th class="px-2 py-2 text-right text-[10px] text-slate-400 font-bold">預估量</th>
+                <th class="px-2 py-2 text-right text-[10px] text-slate-400 font-bold">KD</th>
+              </tr>
+            </thead>
+            <tbody id="feigu-signals-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Tab: 策略說明 ── -->
+    <div id="strat-tab-rules" class="strat-content hidden">
+      <div class="dark-card p-4 mb-2 space-y-3 text-sm text-slate-300">
+        <h2 class="text-base font-bold text-amber-300 flex items-center gap-2"><i class="fa-solid fa-book-open text-amber-400"></i>朱家泓「飆股續勢戰法」策略說明</h2>
+        <div class="border-t border-slate-700 pt-3">
+          <div class="font-bold text-white text-xs mb-1">🔷 階段一：技術面三大條件（靜態篩選）</div>
+          <ul class="text-[11px] space-y-1.5 text-slate-400 list-disc list-inside leading-relaxed">
+            <li><span class="text-emerald-300 font-bold">均線多頭排列</span>：5MA &gt; 10MA &gt; 20MA &gt; 60MA，且各均線斜率均向上</li>
+            <li><span class="text-blue-300 font-bold">週線確認</span>：週收盤 &gt; 20週均線（系統以100日均線近似）</li>
+            <li><span class="text-amber-300 font-bold">初升段辨識</span>：60日內自低點翻揚，漲幅未超過50%，排除末升段</li>
+          </ul>
+        </div>
+        <div class="border-t border-slate-700 pt-3">
+          <div class="font-bold text-white text-xs mb-1">🔷 階段二：操作四步驟（動態監控）</div>
+          <div class="space-y-2 text-[11px] text-slate-400">
+            <div class="flex gap-2"><span class="text-amber-400 font-bold shrink-0">步驟1</span><span>收盤 &lt; 5MA → 進入<span class="text-amber-300">「回檔中」</span>狀態</span></div>
+            <div class="flex gap-2"><span class="text-amber-400 font-bold shrink-0">步驟2</span><span>最低價 ≥ 20MA 且 &gt; 前波低點 → 維持監控；否則剔除名單</span></div>
+            <div class="flex gap-2"><span class="text-amber-400 font-bold shrink-0">步驟3</span><span>成交量 &lt; 5日均量 → 進入<span class="text-emerald-300">「守穩量縮」</span>狀態</span></div>
+            <div class="flex gap-2"><span class="text-amber-400 font-bold shrink-0">步驟4</span><span>13:00–13:25 同時符合 <span class="text-rose-400 font-bold">6項轉強條件</span> → 觸發進場訊號</span></div>
+          </div>
+        </div>
+        <div class="border-t border-slate-700 pt-3">
+          <div class="font-bold text-white text-xs mb-1">🔷 步驟四：六項進場條件</div>
+          <div class="grid grid-cols-1 gap-1 text-[11px]">
+            <div class="flex gap-2 items-start"><span class="text-rose-400 font-bold shrink-0 w-5">①</span><span><span class="text-white">價漲：</span>當日價格 &gt; 昨日收盤</span></div>
+            <div class="flex gap-2 items-start"><span class="text-rose-400 font-bold shrink-0 w-5">②</span><span><span class="text-white">爆量：</span>預估量 &gt; 5日均量 且 &gt; 昨日量</span></div>
+            <div class="flex gap-2 items-start"><span class="text-rose-400 font-bold shrink-0 w-5">③</span><span><span class="text-white">紅K實體棒：</span>當日價 &gt; 開盤，且實體 &gt; 0.3%</span></div>
+            <div class="flex gap-2 items-start"><span class="text-rose-400 font-bold shrink-0 w-5">④</span><span><span class="text-white">突破5日線：</span>當日價 &gt; 5MA</span></div>
+            <div class="flex gap-2 items-start"><span class="text-rose-400 font-bold shrink-0 w-5">⑤</span><span><span class="text-white">突破昨高：</span>當日價 &gt; 昨日最高</span></div>
+            <div class="flex gap-2 items-start"><span class="text-rose-400 font-bold shrink-0 w-5">⑥</span><span><span class="text-white">KD黃金交叉：</span>今日 K ≥ D 且昨日 K &lt; D</span></div>
+          </div>
+        </div>
+        <div class="border-t border-slate-700 pt-3 text-[10px] text-slate-500">
+          <i class="fa-solid fa-circle-exclamation mr-1"></i>
+          本工具僅供技術分析學習，不構成投資建議。投資有風險，請自行判斷。
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /p-3 -->
+</div><!-- /strategy-panel -->
 
 <script>
     const FINMIND_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJkYXRlIjoiMjAyNi0wMi0wOCAyMzoyODoyMSIsInVzZXJfaWQiOiJzdGV2ZW40ZGV2IiwiZW1haWwiOiJzdGV2ZW40ZGV2QGdtYWlsLmNvbSIsImlwIjoiMTExLjcxLjE4LjY5In0.HjXvn-fgUl_piw0GkPNZOwlebOUKPmPmUZTtCqk55b4"; 
@@ -1570,10 +1806,544 @@
         cD.on('plotly_click', d=>{if(d.points.length) lockDate(d.points[0].x);}); cD.on('plotly_hover', d=>{if(d.points.length) updateInfoPanel(d.points[0].x);});
     }
 
-    window.onload = function() { 
-        initFavorites(); 
-        fetchStockList(); 
-        fetchStockData(); 
+    // ═══════════════════════════════════════════════════════════════
+    //  飆股續勢戰法選股系統  (朱家泓策略自動化引擎)
+    // ═══════════════════════════════════════════════════════════════
+
+    const FEIGU_POOL_KEY     = 'feigu_pool_v1';
+    const FEIGU_STATES_KEY   = 'feigu_states_v1';
+    const FEIGU_SIGNALS_KEY  = 'feigu_signals_v1';
+
+    let feiguPool     = [];   // 使用者加入的選股池
+    let feiguStates   = {};   // 每檔股票的狀態機資料
+    let feiguSignals  = [];   // 觸發的進場訊號
+    let feiguPollingTimer = null;
+    let feiguScanRunning  = false;
+    let feiguActiveTab    = 'pool';
+    let feiguClockTimer   = null;
+
+    // ── 預設清單 ────────────────────────────────────────────────
+    const FEIGU_PRESETS = {
+        ai:   ['2330','3711','6669','2382','3034','6770','2454','3008','2303'],
+        semi: ['2330','2303','2338','3034','5347','6582','3711','2379','3443'],
+        etf:  ['0050','0052','00830','00935','00631L','00685L'],
+    };
+
+    // ── 限速佇列（避免 FinMind 600 req/hr 超限）────────────────
+    const _fq = [];
+    let _fqActive = 0;
+    const _FQ_DELAY = 300; // ms between requests (~200 req/min)
+
+    function feiguFetch(url) {
+        return new Promise((resolve, reject) => {
+            _fq.push({ url, resolve, reject });
+            _fqProcess();
+        });
+    }
+    async function _fqProcess() {
+        if (_fqActive >= 2 || _fq.length === 0) return;
+        _fqActive++;
+        const item = _fq.shift();
+        try {
+            const r = await fetch(item.url);
+            const j = await r.json();
+            item.resolve(j);
+        } catch(e) { item.reject(e); }
+        finally {
+            _fqActive--;
+            setTimeout(_fqProcess, _FQ_DELAY);
+        }
+    }
+
+    // ── 持久化 ───────────────────────────────────────────────────
+    function feiguLoad() {
+        try { feiguPool    = JSON.parse(localStorage.getItem(FEIGU_POOL_KEY)    || '[]'); } catch(e) { feiguPool = []; }
+        try { feiguStates  = JSON.parse(localStorage.getItem(FEIGU_STATES_KEY)  || '{}'); } catch(e) { feiguStates = {}; }
+        try { feiguSignals = JSON.parse(localStorage.getItem(FEIGU_SIGNALS_KEY) || '[]'); } catch(e) { feiguSignals = []; }
+    }
+    function feiguSave() {
+        try {
+            localStorage.setItem(FEIGU_POOL_KEY,    JSON.stringify(feiguPool));
+            localStorage.setItem(FEIGU_STATES_KEY,  JSON.stringify(feiguStates));
+            localStorage.setItem(FEIGU_SIGNALS_KEY, JSON.stringify(feiguSignals));
+        } catch(e) {}
+    }
+
+    // ── 面板開關 ────────────────────────────────────────────────
+    function openStrategyPanel() {
+        feiguLoad();
+        document.getElementById('strategy-panel').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        _feiguStartClock();
+        renderFeiguPanel();
+    }
+    function closeStrategyPanel() {
+        document.getElementById('strategy-panel').classList.add('hidden');
+        document.body.style.overflow = '';
+        stopFeiguPolling();
+        _feiguStopClock();
+    }
+
+    // ── 時鐘 ────────────────────────────────────────────────────
+    function _feiguStartClock() {
+        const tick = () => {
+            const n = new Date();
+            const el = document.getElementById('strat-clock');
+            if (el) el.textContent = [n.getHours(),n.getMinutes(),n.getSeconds()].map(v=>String(v).padStart(2,'0')).join(':');
+        };
+        tick();
+        feiguClockTimer = setInterval(tick, 1000);
+    }
+    function _feiguStopClock() { if(feiguClockTimer){ clearInterval(feiguClockTimer); feiguClockTimer=null; } }
+
+    // ── 分頁切換 ────────────────────────────────────────────────
+    function switchStratTab(tab) {
+        feiguActiveTab = tab;
+        document.querySelectorAll('.strat-tab').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
+        document.querySelectorAll('.strat-content').forEach(d => d.classList.toggle('hidden', d.id!==`strat-tab-${tab}`));
+    }
+
+    // ── 搜尋下拉（選股池輸入框）────────────────────────────────
+    function feiguSearchInput(val) {
+        const dd = document.getElementById('feigu-search-dropdown');
+        if (!val.trim() || stockDict.length===0) { dd.classList.add('hidden'); return; }
+        const term = val.toLowerCase().trim();
+        const matches = stockDict.filter(s => s.id.includes(term)||s.name.includes(term)).slice(0,10);
+        if (!matches.length) { dd.classList.add('hidden'); return; }
+        const inp = document.getElementById('feigu-add-input');
+        const rect = inp.getBoundingClientRect();
+        dd.style.top  = (rect.bottom + window.scrollY + 2) + 'px';
+        dd.style.left = rect.left + 'px';
+        dd.style.width = rect.width + 'px';
+        dd.innerHTML = matches.map(m =>
+            `<li class="px-2 py-1.5 hover:bg-slate-700 cursor-pointer flex justify-between" onclick="document.getElementById('feigu-add-input').value='${m.id}';document.getElementById('feigu-search-dropdown').classList.add('hidden');">
+                <span class="text-blue-400 font-mono font-bold">${m.id}</span>
+                <span class="text-slate-300 text-[10px]">${m.name}</span>
+            </li>`).join('');
+        dd.classList.remove('hidden');
+    }
+    document.addEventListener('click', e => {
+        if (!e.target.closest('#feigu-add-input') && !e.target.closest('#feigu-search-dropdown'))
+            document.getElementById('feigu-search-dropdown')?.classList.add('hidden');
+    });
+
+    // ── 選股池管理 ───────────────────────────────────────────────
+    function feiguAddToPool() {
+        const v = document.getElementById('feigu-add-input').value.trim().toUpperCase();
+        if (!v || feiguPool.includes(v)) return;
+        feiguPool.push(v);
+        feiguSave();
+        document.getElementById('feigu-add-input').value = '';
+        document.getElementById('feigu-search-dropdown').classList.add('hidden');
+        renderFeiguPoolTab();
+    }
+    function feiguRemoveFromPool(sym) {
+        feiguPool = feiguPool.filter(s => s !== sym);
+        feiguSave();
+        renderFeiguPanel();
+    }
+    function feiguClearPool() {
+        if (!confirm('確定清空選股池？狀態記錄也將一併刪除。')) return;
+        feiguPool = []; feiguStates = {};
+        feiguSave(); renderFeiguPanel();
+    }
+    function feiguAddPreset(key) {
+        if (key === 'fav') {
+            // 從自選清單匯入（只取純股票代碼，排除大盤/ETF已在其他preset）
+            favorites.filter(s => s !== 'TAIEX').forEach(s => { if (!feiguPool.includes(s)) feiguPool.push(s); });
+        } else {
+            (FEIGU_PRESETS[key] || []).forEach(s => { if (!feiguPool.includes(s)) feiguPool.push(s); });
+        }
+        feiguSave(); renderFeiguPoolTab();
+    }
+
+    // ── 指標計算工具 ─────────────────────────────────────────────
+    function _ma(data, n) {
+        const len = data.length;
+        if (len < n) return null;
+        return data.slice(len - n).reduce((s, d) => s + d.close, 0) / n;
+    }
+    function _slope(data, n) {
+        const len = data.length;
+        if (len < n + 5) return null;
+        const recent = data.slice(len - 5).reduce((s,d)=>s+d.close,0)/5;
+        const prev   = data.slice(len-n-5, len-n).reduce((s,d)=>s+d.close,0)/5;
+        return recent > prev * 1.001; // 需明顯向上（+0.1%）
+    }
+    function _v5ma(data) {
+        if (data.length < 5) return 0;
+        return data.slice(-5).reduce((s,d)=>s+d.volume,0)/5;
+    }
+    function _calcKD(data, n=9) {
+        let pK=50, pD=50;
+        for (let i=0; i<data.length; i++) {
+            const w = data.slice(Math.max(0,i-n+1), i+1);
+            const hi = Math.max(...w.map(d=>d.high));
+            const lo = Math.min(...w.map(d=>d.low));
+            const rsv = (hi!==lo) ? ((data[i].close-lo)/(hi-lo))*100 : 50;
+            pK = (2/3)*pK + (1/3)*rsv;
+            pD = (2/3)*pD + (1/3)*pK;
+        }
+        return { k: pK, d: pD };
+    }
+
+    // ── 取得日線數據（含快取）────────────────────────────────────
+    async function feiguGetDaily(symbol, days=160) {
+        const cacheKey = `feigu_daily_${symbol}`;
+        const today = new Date().toISOString().split('T')[0];
+        try {
+            const cached = JSON.parse(sessionStorage.getItem(cacheKey));
+            if (cached && cached.date === today && cached.data?.length > 0) return cached.data;
+        } catch(e) {}
+
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - Math.ceil(days * 1.6));
+        const startStr = startDate.toISOString().split('T')[0];
+        const url = `https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id=${symbol}&start_date=${startStr}&token=${FINMIND_TOKEN}`;
+        try {
+            const j = await feiguFetch(url);
+            if (j.data && j.data.length > 0) {
+                const data = j.data
+                    .sort((a,b)=>a.date.localeCompare(b.date))
+                    .map(d => ({ date:d.date, open:d.open, high:d.max, low:d.min, close:d.close, volume:d.Trading_Volume||d.volume||0 }));
+                try { sessionStorage.setItem(cacheKey, JSON.stringify({ date:today, data })); } catch(e) {}
+                return data;
+            }
+        } catch(e) {}
+        return null;
+    }
+
+    // ── 初升段辨識 ───────────────────────────────────────────────
+    function _checkInitialUptrend(data) {
+        const recent120 = data.slice(-120);
+        if (recent120.length < 60) return false;
+        // 找最近120日內的最低收盤
+        let loIdx = 0, loVal = Infinity;
+        recent120.forEach((d, i) => { if (d.close < loVal) { loVal = d.close; loIdx = i; } });
+        // 底部需在最近5~60個交易日內出現（太早=已延伸，太近=剛起步）
+        const daysFromLow = recent120.length - 1 - loIdx;
+        if (daysFromLow < 5 || daysFromLow > 60) return false;
+        // 目前價格距低點不超過50%（排除末升段高點）
+        const cur = data[data.length - 1].close;
+        if ((cur - loVal) / loVal > 0.50) return false;
+        return true;
+    }
+
+    // ── 階段一：三大條件篩選 ─────────────────────────────────────
+    function _phase1Check(data, symbol) {
+        if (!data || data.length < 105) return { pass:false, reason:'數據不足(需105日)' };
+        const last = data[data.length-1];
+        const prev = data[data.length-2] || last;
+        // 1. MA 排列
+        const ma5=_ma(data,5), ma10=_ma(data,10), ma20=_ma(data,20), ma60=_ma(data,60), ma100=_ma(data,100);
+        if (!ma5||!ma10||!ma20||!ma60) return { pass:false, reason:'均線數據不足' };
+        if (!(ma5>ma10 && ma10>ma20 && ma20>ma60)) return { pass:false, reason:`均線未多排 5MA:${fmt2(ma5)} 10MA:${fmt2(ma10)} 20MA:${fmt2(ma20)} 60MA:${fmt2(ma60)}` };
+        // 2. 斜率全部向上
+        if (!_slope(data,5)||!_slope(data,10)||!_slope(data,20)||!_slope(data,60)) return { pass:false, reason:'均線斜率未全部向上' };
+        // 3. 週線（100MA 近似）
+        if (!ma100) return { pass:false, reason:'週線不足(需100日)' };
+        if (last.close < ma100) return { pass:false, reason:`週線(100MA)未通過 收${fmt2(last.close)}<100MA:${fmt2(ma100)}` };
+        // 4. 初升段
+        if (!_checkInitialUptrend(data)) return { pass:false, reason:'非初升段（已延伸或無近期底部）' };
+        // 前波低（回檔守支撐用）
+        const prevWaveLow = Math.min(...data.slice(-60,-1).map(d=>d.low));
+        const v5ma  = _v5ma(data);
+        const kd    = _calcKD(data);
+        const kdPrev = _calcKD(data.slice(0,-1));
+        return {
+            pass:true, reason:'OK', symbol,
+            close:last.close, open:last.open, high:last.high, low:last.low,
+            volume:last.volume, prevClose:prev.close, prevHigh:prev.high,
+            ma5, ma10, ma20, ma60, ma100, v5ma, prevWaveLow,
+            k:kd.k, d:kd.d, prevK:kdPrev.k, prevD:kdPrev.d, date:last.date
+        };
+    }
+
+    // ── 執行階段一選股 ───────────────────────────────────────────
+    async function runPhase1Scan() {
+        if (feiguScanRunning) return;
+        if (feiguPool.length === 0) { alert('請先加入股票代碼到選股池！'); return; }
+        feiguScanRunning = true;
+        const btn = document.getElementById('feigu-scan-btn');
+        const wrap = document.getElementById('feigu-progress-wrap');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>篩選中，請稍候...';
+        wrap.classList.remove('hidden');
+
+        let done = 0;
+        const total = feiguPool.length;
+
+        for (const sym of feiguPool) {
+            try {
+                const data = await feiguGetDaily(sym, 160);
+                const result = _phase1Check(data, sym);
+                if (!feiguStates[sym]) feiguStates[sym] = {};
+                feiguStates[sym].phase1 = result;
+                feiguStates[sym].phase1_time = new Date().toISOString();
+                if (result.pass) {
+                    if (feiguStates[sym].state === undefined || feiguStates[sym].state < 0)
+                        feiguStates[sym].state = 0;
+                    feiguStates[sym].latest = result;
+                    feiguStates[sym].prevWaveLow = result.prevWaveLow;
+                } else {
+                    feiguStates[sym].state = -1;
+                }
+            } catch(e) { console.warn('phase1 err', sym, e); }
+            done++;
+            const pct = Math.round(done/total*100);
+            const pg = document.getElementById('feigu-scan-progress');
+            const pt = document.getElementById('feigu-scan-progress-text');
+            if(pg) pg.style.width = pct+'%';
+            if(pt) pt.textContent = `${done}/${total} (${pct}%)`;
+        }
+
+        feiguSave();
+        feiguScanRunning = false;
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-filter mr-1"></i>執行選股（階段一）';
+        renderFeiguPanel();
+    }
+
+    // ── 階段二：狀態機更新 ───────────────────────────────────────
+    async function updateStateMachines() {
+        const watchlist = feiguPool.filter(s => (feiguStates[s]?.state ?? -1) >= 0);
+        for (const sym of watchlist) {
+            try {
+                const data = await feiguGetDaily(sym, 90);
+                if (!data || data.length < 20) continue;
+                const last = data[data.length-1];
+                const prev = data[data.length-2]||last;
+                const ma5  = _ma(data,5);
+                const ma20 = _ma(data,20);
+                const v5ma = _v5ma(data);
+                const st   = feiguStates[sym];
+                const prevWaveLow = st.prevWaveLow || Math.min(...data.slice(-61,-1).map(d=>d.low));
+                // 更新最新數值
+                st.latest = { close:last.close, open:last.open, high:last.high, low:last.low,
+                    volume:last.volume, prevClose:prev.close, prevHigh:prev.high,
+                    ma5, ma20, v5ma, prevWaveLow, date:last.date };
+
+                const cur = st.state ?? 0;
+                if (cur === 0) {
+                    if (ma5 && last.close < ma5) {
+                        st.state = 1;
+                        st.state_since = last.date;
+                        st.note = `跌破5MA(${fmt2(ma5)})，開始回檔`;
+                    }
+                } else if (cur === 1 || cur === 2) {
+                    // 淘汰條件
+                    if (ma20 && last.low < ma20) {
+                        st.state = -1; st.note = `跌破20MA(${fmt2(ma20)})→淘汰`;
+                    } else if (prevWaveLow && last.low <= prevWaveLow) {
+                        st.state = -1; st.note = `跌破前波低(${fmt2(prevWaveLow)})→淘汰`;
+                    } else if (cur === 1 && v5ma > 0 && last.volume < v5ma) {
+                        st.state = 2;
+                        st.state_since = last.date;
+                        st.note = `量縮(${Math.round(last.volume/1000)}張<V5MA:${Math.round(v5ma/1000)}張)`;
+                    }
+                }
+            } catch(e) {}
+        }
+        feiguSave(); renderFeiguPanel();
+    }
+
+    // ── 步驟四：進場訊號掃描（13:00-13:25）────────────────────────
+    async function checkEntrySignals() {
+        const now  = new Date();
+        const h    = now.getHours();
+        const m    = now.getMinutes();
+        const inWindow = (h === 13 && m <= 25) || (h === 12 && m >= 55); // 小提前5分鐘預熱
+        updateFeiguStatusBadge(inWindow ? '🔍 盤末掃描中...' : `⏳ 等待進場窗口 (13:00-13:25) | 現在 ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+        if (!inWindow) return;
+
+        const state2 = feiguPool.filter(s => feiguStates[s]?.state === 2);
+        for (const sym of state2) {
+            try {
+                const data = await feiguGetDaily(sym, 30);
+                if (!data || data.length < 15) continue;
+                const last = data[data.length-1];
+                const prev = data[data.length-2]||last;
+                const ma5  = _ma(data,5);
+                const v5ma = _v5ma(data);
+                const kd   = _calcKD(data);
+                const kdPrev = _calcKD(data.slice(0,-1));
+                // 預估量（當前量 ÷ 已交易佔比 × 調整係數 1.1）
+                const tradedMins = Math.max(1,(h-9)*60+m);
+                const estVol = Math.round(last.volume / (tradedMins/270) * 1.1);
+                // 六條件
+                const c1 = last.close > prev.close;
+                const c2 = estVol > v5ma && estVol > prev.volume;
+                const c3 = last.close > last.open && (last.close-last.open)/last.close > 0.003;
+                const c4 = !!ma5 && last.close > ma5;
+                const c5 = last.close > prev.high;
+                const c6 = kd.k >= kd.d && kdPrev.k < kdPrev.d;
+                if (c1&&c2&&c3&&c4&&c5&&c6) {
+                    const alreadySig = feiguSignals.some(s=>s.symbol===sym&&s.date===last.date);
+                    if (!alreadySig) {
+                        const sig = {
+                            symbol:sym, date:last.date,
+                            time:`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`,
+                            price:last.close,
+                            conditions:{c1,c2,c3,c4,c5,c6},
+                            estVol:Math.round(estVol/1000), v5ma:Math.round(v5ma/1000),
+                            k:Math.round(kd.k), d:Math.round(kd.d)
+                        };
+                        feiguSignals.unshift(sig);
+                        feiguStates[sym].state = 3;
+                        feiguStates[sym].signal_time = now.toISOString();
+                        _feiguNotify(sym, last.close, sig.time);
+                        switchStratTab('signals');
+                    }
+                }
+            } catch(e) {}
+        }
+        feiguSave(); renderFeiguSignalsTab();
+        updateFeiguStatusBadge(`✅ 掃描完畢 ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+    }
+
+    function _feiguNotify(sym, price, time) {
+        try {
+            if (Notification.permission === 'granted') {
+                new Notification('🚨 飆股續勢戰法 - 進場訊號', {
+                    body: `${sym}  現價 ${price}\n6條件全數觸發！(${time})\n建議 13:25-13:30 買進做多`,
+                    tag: `feigu_${sym}`
+                });
+            }
+        } catch(e) {}
+    }
+    function requestFeiguNotifPermission() {
+        if ('Notification' in window) Notification.requestPermission().then(p => {
+            if (p === 'granted') alert('✅ 推播通知已啟用！訊號觸發時將自動提示。');
+            else alert('❌ 通知權限被拒絕，請在瀏覽器設定中手動開啟。');
+        });
+    }
+
+    // ── 自動輪詢 ────────────────────────────────────────────────
+    function toggleFeiguPolling() {
+        if (feiguPollingTimer) stopFeiguPolling(); else startFeiguPolling();
+    }
+    function startFeiguPolling() {
+        if (feiguPollingTimer) return;
+        checkEntrySignals();
+        feiguPollingTimer = setInterval(checkEntrySignals, 60000);
+        document.getElementById('feigu-poll-btn').classList.add('poll-active');
+        document.getElementById('feigu-poll-btn').innerHTML = '<i class="fa-solid fa-radar mr-1"></i>停止監控';
+        updateFeiguStatusBadge('🟢 自動監控已啟動（每分鐘掃描）');
+    }
+    function stopFeiguPolling() {
+        if (feiguPollingTimer) clearInterval(feiguPollingTimer);
+        feiguPollingTimer = null;
+        const btn = document.getElementById('feigu-poll-btn');
+        if (btn) { btn.classList.remove('poll-active'); btn.innerHTML = '<i class="fa-solid fa-radar mr-1"></i>啟動監控'; }
+        updateFeiguStatusBadge('⏹ 監控已停止');
+    }
+    function updateFeiguStatusBadge(text) {
+        const el = document.getElementById('feigu-status-badge');
+        if (el) el.textContent = text;
+    }
+
+    // ── 渲染 ────────────────────────────────────────────────────
+    function renderFeiguPanel() { renderFeiguPoolTab(); renderFeiguWatchlistTab(); renderFeiguSignalsTab(); }
+
+    function renderFeiguPoolTab() {
+        const c = document.getElementById('feigu-pool-list');
+        if (!c) return;
+        // 通過計數
+        const passCount = feiguPool.filter(s => (feiguStates[s]?.state ?? -2) >= 0).length;
+        const el = document.getElementById('feigu-pass-count');
+        if (el) el.textContent = `${passCount}/${feiguPool.length} 通過篩選`;
+        if (feiguPool.length === 0) {
+            c.innerHTML = `<div class="text-center text-slate-500 py-6 text-xs">尚無股票，請輸入代碼或選擇預設清單加入選股池</div>`;
+            return;
+        }
+        c.innerHTML = feiguPool.map((sym, i) => {
+            const st = feiguStates[sym];
+            const r = st?.phase1;
+            let badge = '<span class="text-[9px] text-slate-600">待篩選</span>';
+            let maRow = '';
+            if (r) {
+                badge = r.pass
+                    ? `<span class="text-[9px] font-bold text-emerald-400">✓ 通過</span>`
+                    : `<span class="text-[9px] text-rose-400 break-words leading-tight">✗ ${r.reason}</span>`;
+                if (r.pass) maRow = `<div class="text-[9px] text-slate-500 mt-0.5">5:${fmt2(r.ma5)} 10:${fmt2(r.ma10)} 20:${fmt2(r.ma20)} 60:${fmt2(r.ma60)}</div>`;
+            }
+            return `<div class="flex items-start gap-2 py-2 px-2 ${i%2===0?'bg-slate-800/25':'bg-slate-900/20'} rounded mb-0.5">
+                <span class="font-mono font-bold text-blue-300 text-xs shrink-0 w-14">${sym}</span>
+                <div class="flex-1 min-w-0">${badge}${maRow}</div>
+                <button onclick="feiguRemoveFromPool('${sym}')" class="text-slate-600 hover:text-rose-400 text-xs shrink-0 mt-0.5">
+                    <i class="fa-solid fa-xmark"></i></button>
+            </div>`;
+        }).join('');
+    }
+
+    function renderFeiguWatchlistTab() {
+        const c = document.getElementById('feigu-watchlist-body');
+        if (!c) return;
+        const stateMap = {
+            '-1': ['❌ 淘汰','feigu-state-x'],
+            '0' : ['🔍 觀察中','feigu-state-0'],
+            '1' : ['📉 回檔中','feigu-state-1'],
+            '2' : ['📊 量縮','feigu-state-2'],
+            '3' : ['🚨 訊號！','feigu-state-3'],
+        };
+        const tracked = feiguPool.filter(s => feiguStates[s]?.state !== undefined);
+        if (!tracked.length) {
+            c.innerHTML = `<tr><td colspan="6" class="text-center text-slate-500 py-8 text-xs">尚無監控標的，請先執行選股</td></tr>`;
+            return;
+        }
+        // 排序：訊號 > 量縮 > 回檔 > 觀察 > 淘汰
+        const order = { 3:0, 2:1, 1:2, 0:3, '-1':4 };
+        const sorted = [...tracked].sort((a,b) => (order[feiguStates[a]?.state]??5) - (order[feiguStates[b]?.state]??5));
+        c.innerHTML = sorted.map((sym,i) => {
+            const st = feiguStates[sym]||{};
+            const l = st.latest || st.phase1 || {};
+            const state = String(st.state ?? -1);
+            const [sText, sCls] = stateMap[state] || ['--','text-slate-500'];
+            const dVsMa5  = l.ma5  ? ((l.close-l.ma5)/l.ma5*100).toFixed(1) : '--';
+            const dVsMa20 = l.ma20 ? ((l.close-l.ma20)/l.ma20*100).toFixed(1) : '--';
+            const note = st.note || '';
+            return `<tr class="${i%2===0?'bg-slate-800/20':'bg-slate-900/10'} hover:bg-slate-700/20">
+                <td class="px-2 py-2">
+                    <button onclick="selectStock('${sym}');closeStrategyPanel();" class="font-mono font-bold text-blue-300 hover:text-blue-200 text-xs">${sym}</button>
+                </td>
+                <td class="px-2 py-2"><span class="${sCls} text-[9px] px-1.5 py-0.5 rounded font-bold">${sText}</span></td>
+                <td class="px-2 py-2 text-right font-mono text-slate-200 text-xs">${l.close ? fmt2(l.close) : '--'}</td>
+                <td class="px-2 py-2 text-right text-[10px] text-slate-400">${l.ma5?fmt2(l.ma5):'--'}<br><span class="${Number(dVsMa5)>=0?'text-rose-400':'text-emerald-400'} text-[9px]">${dVsMa5}%</span></td>
+                <td class="px-2 py-2 text-right text-[10px] text-slate-400">${l.ma20?fmt2(l.ma20):'--'}<br><span class="${Number(dVsMa20)>=0?'text-rose-400':'text-emerald-400'} text-[9px]">${dVsMa20}%</span></td>
+                <td class="px-2 py-2 text-[9px] text-slate-500 max-w-[100px] break-words">${note}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    function renderFeiguSignalsTab() {
+        const c = document.getElementById('feigu-signals-body');
+        if (!c) return;
+        if (!feiguSignals.length) {
+            c.innerHTML = `<tr><td colspan="5" class="text-center text-slate-500 py-8 text-xs">尚無進場訊號<br>請在 13:00-13:25 啟動自動監控</td></tr>`;
+            return;
+        }
+        const ck = (b) => b ? `<span class="inline-block w-4 text-center text-emerald-400 font-bold">✓</span>` : `<span class="inline-block w-4 text-center text-slate-700">·</span>`;
+        c.innerHTML = feiguSignals.slice(0,50).map((sig,i) => {
+            const {c1,c2,c3,c4,c5,c6} = sig.conditions;
+            return `<tr class="${i%2===0?'bg-slate-800/20':'bg-slate-900/10'}">
+                <td class="px-2 py-2">
+                    <button onclick="selectStock('${sig.symbol}');closeStrategyPanel();" class="font-mono font-bold text-amber-300 hover:text-amber-200 text-xs">${sig.symbol}</button>
+                    <div class="text-[9px] text-slate-500">${sig.date} ${sig.time}</div>
+                </td>
+                <td class="px-2 py-2 text-right font-mono text-white text-xs">${fmt2(sig.price)}</td>
+                <td class="px-2 py-2 text-center font-mono text-xs">${ck(c1)}${ck(c2)}${ck(c3)}${ck(c4)}${ck(c5)}${ck(c6)}</td>
+                <td class="px-2 py-2 text-right text-[10px] text-slate-300">${sig.estVol}張<br><span class="text-[9px] text-slate-600">均:${sig.v5ma}張</span></td>
+                <td class="px-2 py-2 text-right text-[10px] text-slate-400">K:${sig.k}<br>D:${sig.d}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+
+    window.onload = function() {
+        initFavorites();
+        fetchStockList();
+        fetchStockData();
     };
 </script>
 </body>
