@@ -49,7 +49,7 @@
         #search-dropdown::-webkit-scrollbar-thumb:hover { background: #64748b; }
 
         /* ── 飆股系統 ─────────────────────────────── */
-        #strategy-panel { position:fixed; inset:0; background:#0f172a; z-index:800; overflow-y:auto; display:flex; flex-direction:column; }
+        #strategy-panel { position:fixed; inset:0; background:#0f172a; z-index:800; overflow-y:auto; flex-direction:column; }
         .strat-tab { padding:.25rem .65rem; font-size:.72rem; font-weight:700; border-radius:6px; color:#64748b; background:transparent; border:1px solid transparent; cursor:pointer; transition:all .15s; white-space:nowrap; }
         .strat-tab.active { color:#fbbf24; background:rgba(251,191,36,.12); border-color:rgba(251,191,36,.4); }
         .strat-tab:hover:not(.active) { color:#94a3b8; background:rgba(255,255,255,.05); }
@@ -2049,13 +2049,17 @@
     // ── 面板開關 ────────────────────────────────────────────────
     function openStrategyPanel() {
         feiguLoad();
-        document.getElementById('strategy-panel').classList.remove('hidden');
+        const _sp = document.getElementById('strategy-panel');
+        _sp.style.display = 'flex';
+        _sp.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
         _feiguStartClock();
         renderFeiguPanel();
     }
     function closeStrategyPanel() {
-        document.getElementById('strategy-panel').classList.add('hidden');
+        const _sp = document.getElementById('strategy-panel');
+        _sp.style.display = 'none';
+        _sp.classList.add('hidden');
         document.body.style.overflow = '';
         stopFeiguPolling();
         _feiguStopClock();
