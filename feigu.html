@@ -690,6 +690,12 @@
         if (el) el.textContent = text;
     }
 
+    // ═══ 股票名稱查詢 ═══════════════════════════════════════════
+    function _stockName(sym) {
+        const found = stockDict.find(s => s.id === sym);
+        return found ? found.name : '';
+    }
+
     // ═══ 渲染函式 ════════════════════════════════════════════════
     function renderFeiguPanel() { renderFeiguPoolTab(); renderFeiguWatchlistTab(); renderFeiguSignalsTab(); }
 
@@ -713,9 +719,13 @@
                     : `<span class="text-[9px] text-rose-400 break-words leading-tight">✗ ${r.reason}</span>`;
                 if (r.pass) maRow = `<div class="text-[9px] text-slate-500 mt-0.5">5:${fmt2(r.ma5)} 10:${fmt2(r.ma10)} 20:${fmt2(r.ma20)} 60:${fmt2(r.ma60)}</div>`;
             }
+            const name = _stockName(sym);
             return `<div class="flex items-start gap-2 py-2 px-2 ${i%2===0?'bg-slate-800/25':'bg-slate-900/20'} rounded mb-0.5">
-                <a href="AI-5D.html?sym=${sym}" target="_blank"
-                    class="font-mono font-bold text-blue-300 hover:text-blue-200 text-xs shrink-0 w-14 hover:underline" title="在 AI-5D 查看 ${sym}">${sym}</a>
+                <div class="shrink-0 w-[4.5rem]">
+                    <a href="AI-5D.html?sym=${sym}" target="_blank"
+                        class="font-mono font-bold text-blue-300 hover:text-blue-200 text-xs hover:underline" title="在 AI-5D 查看 ${sym}">${sym}</a>
+                    ${name ? `<div class="text-[9px] text-slate-400 truncate leading-tight">${name}</div>` : ''}
+                </div>
                 <div class="flex-1 min-w-0">${badge}${maRow}</div>
                 <button onclick="feiguRemoveFromPool('${sym}')" class="text-slate-600 hover:text-rose-400 text-xs shrink-0 mt-0.5">
                     <i class="fa-solid fa-xmark"></i></button>
@@ -750,6 +760,7 @@
                 <td class="px-2 py-2">
                     <a href="AI-5D.html?sym=${sym}" target="_blank"
                         class="font-mono font-bold text-blue-300 hover:text-blue-200 text-xs hover:underline">${sym}</a>
+                    ${_stockName(sym) ? `<div class="text-[9px] text-slate-400 truncate leading-tight max-w-[4rem]">${_stockName(sym)}</div>` : ''}
                 </td>
                 <td class="px-2 py-2"><span class="${sCls} text-[9px] px-1.5 py-0.5 rounded font-bold">${sText}</span></td>
                 <td class="px-2 py-2 text-right font-mono text-slate-200 text-xs">${l.close?fmt2(l.close):'--'}</td>
@@ -778,6 +789,7 @@
                 <td class="px-2 py-2">
                     <a href="AI-5D.html?sym=${sig.symbol}" target="_blank"
                         class="font-mono font-bold text-amber-300 hover:text-amber-200 text-xs hover:underline">${sig.symbol}</a>
+                    ${_stockName(sig.symbol) ? `<div class="text-[9px] text-slate-300 truncate leading-tight">${_stockName(sig.symbol)}</div>` : ''}
                     <div class="text-[9px] text-slate-500">${sig.date} ${sig.time}</div>
                 </td>
                 <td class="px-2 py-2 text-right font-mono text-white text-xs">${fmt2(sig.price)}</td>
