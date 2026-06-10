@@ -104,11 +104,12 @@
             </div>
             <div class="text-[10px] text-slate-500 mb-1">快速加入預設清單：</div>
             <div class="flex flex-wrap gap-1">
-                <button onclick="feiguAddPreset('ai')"   class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded border border-slate-600">🤖 AI/算力</button>
-                <button onclick="feiguAddPreset('semi')" class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-blue-300 rounded border border-slate-600">💡 半導體</button>
-                <button onclick="feiguAddPreset('etf')"  class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded border border-slate-600">📊 ETF</button>
-                <button onclick="feiguAddPreset('fav')"  class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-purple-300 rounded border border-slate-600">⭐ AI-5D 自選清單</button>
-                <button onclick="feiguClearPool()"       class="text-[9px] px-2 py-1 bg-rose-900/40 hover:bg-rose-900/60 text-rose-400 rounded border border-rose-700/40 ml-auto">🗑 清空</button>
+                <button onclick="feiguAddPreset('ai')"      class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded border border-slate-600">🤖 AI/算力</button>
+                <button onclick="feiguAddPreset('semi')"    class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-blue-300 rounded border border-slate-600">💡 半導體</button>
+                <button onclick="feiguAddPreset('passive')" class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-orange-300 rounded border border-slate-600">🔋 被動元件</button>
+                <button onclick="feiguAddPreset('etf')"     class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded border border-slate-600">📊 ETF</button>
+                <button onclick="feiguAddPreset('fav')"     class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-purple-300 rounded border border-slate-600">⭐ AI-5D 自選清單</button>
+                <button onclick="feiguClearPool()"          class="text-[9px] px-2 py-1 bg-rose-900/40 hover:bg-rose-900/60 text-rose-400 rounded border border-rose-700/40 ml-auto">🗑 清空</button>
             </div>
         </div>
         <!-- 掃描控制 -->
@@ -280,9 +281,11 @@
     const AI5D_FAVS_KEY     = 'stockFavs_v24';   // 與 AI-5D.html 共用 localStorage
 
     const FEIGU_PRESETS = {
-        ai:   ['2330','3711','6669','2382','3034','6770','2454','3008','2303'],
-        semi: ['2330','2303','2338','3034','5347','6582','3711','2379','3443'],
-        etf:  ['0050','0052','00830','00935','00631L','00685L'],
+        ai:      ['2330','3711','6669','2382','3034','6770','2454','3008','2303'],
+        semi:    ['2330','2303','2338','3034','5347','6582','3711','2379','3443'],
+        etf:     ['0050','0052','00830','00935','00631L','00685L'],
+        passive: ['2327','2492','3026','2437','2456','2364','2478','2428','2472','2375'],
+        // 被動元件族群：國巨、華新科、禾伸堂、旺詮、奇力新、乾坤科技、大毅、興勤、立隆電、智寶
     };
 
     // ═══ 狀態變數 ════════════════════════════════════════════════
