@@ -106,6 +106,13 @@
             <div class="flex flex-wrap gap-1">
                 <button onclick="feiguAddPreset('ai')"      class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded border border-slate-600">🤖 AI/算力</button>
                 <button onclick="feiguAddPreset('semi')"    class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-blue-300 rounded border border-slate-600">💡 半導體</button>
+                <button onclick="feiguAddPreset('asic')"    class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded border border-slate-600">🧩 ASIC</button>
+                <button onclick="feiguAddPreset('abf')"     class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-lime-300 rounded border border-slate-600">🏗 ABF載板</button>
+                <button onclick="feiguAddPreset('pcb')"     class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-teal-300 rounded border border-slate-600">🔲 PCB</button>
+                <button onclick="feiguAddPreset('cpo')"     class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-violet-300 rounded border border-slate-600">🔮 CPO光學</button>
+                <button onclick="feiguAddPreset('hbm')"     class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-pink-300 rounded border border-slate-600">💾 HBM</button>
+                <button onclick="feiguAddPreset('hvdc')"    class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded border border-slate-600">🔌 HVDC</button>
+                <button onclick="feiguAddPreset('leo')"     class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded border border-slate-600">🛰️ 低軌衛星</button>
                 <button onclick="feiguAddPreset('passive')" class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-orange-300 rounded border border-slate-600">🔋 被動元件</button>
                 <button onclick="feiguAddPreset('power')"   class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-yellow-300 rounded border border-slate-600">⚡ 重電力</button>
                 <button onclick="feiguAddPreset('etf')"     class="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded border border-slate-600">📊 ETF</button>
@@ -286,6 +293,20 @@
         // AI/算力：台積電、日月光、緯創、廣達、聯詠、富鼎、聯發科、大立光、聯電
         semi:    ['2330','2303','2338','3034','5347','6582','3711','2379','3443'],
         // 半導體：台積電、聯電、台聯電、聯詠、世界先進、穩懋、日月光、瑞昱、聯鈞
+        asic:    ['3661','3443','3035','6643','6533'],
+        // ASIC：世芯-KY、創意電子、智原、M31科技、晶心科
+        abf:     ['3037','8046','3189','3044'],
+        // ABF載板：欣興、南電（南亞電路板）、景碩、健鼎
+        pcb:     ['4958','3044','2368','2313','2367','2383'],
+        // PCB：臻鼎-KY、健鼎、金像電、華通、燿華、台光電
+        cpo:     ['3587','3163','3169','3450','3491'],
+        // CPO共封裝光學：光環、波若威、亞信、聯鈞、昇達科
+        hbm:     ['2330','2311','6239','2449','8150'],
+        // HBM高頻寬記憶體：台積電(CoWoS)、日月光、力成、京元電、南茂
+        hvdc:    ['1519','1503','2308','1514','1513'],
+        // HVDC高壓直流：華城電機、士林電機、台達電、亞力電機、中興電工機械
+        leo:     ['2326','5388','3596','3682','4906'],
+        // 低軌衛星：台揚、中磊(Sercomm)、智易、亞太電信、正文科技
         passive: ['2327','2492','3026','2437','2456','2364','2478','2428','2472','2375'],
         // 被動元件：國巨、華新科、禾伸堂、旺詮、奇力新、乾坤科技、大毅、興勤、立隆電、智寶
         power:   ['1519','1503','1504','1514','2371','1513','1603','1609'],
