@@ -181,13 +181,16 @@
             </div>
             <!-- 開關3 -->
             <div class="col-span-2 md:col-span-1 flex flex-col items-center text-center">
-                <label class="block text-[10px] font-bold text-slate-500 mb-0.5 w-full text-center">財報 / 新聞</label>
+                <label class="block text-[10px] font-bold text-slate-500 mb-0.5 w-full text-center">財報 / 新聞 / 🔥飆股</label>
                 <div class="flex gap-1 w-full justify-center">
-                    <div class="flex items-center justify-center h-[32px] w-full bg-slate-900 border border-slate-700 rounded-md">
+                    <div class="flex items-center justify-center h-[32px] w-full bg-slate-900 border border-slate-700 rounded-md" title="財報面板">
                         <label class="relative inline-flex items-center justify-center cursor-pointer"><input type="checkbox" id="fund-toggle" class="sr-only peer" checked onchange="toggleFundSection()"><div class="ios-switch peer-checked:bg-blue-400"></div></label>
                     </div>
-                    <div class="flex items-center justify-center h-[32px] w-full bg-slate-900 border border-slate-700 rounded-md">
+                    <div class="flex items-center justify-center h-[32px] w-full bg-slate-900 border border-slate-700 rounded-md" title="新聞面板">
                         <label class="relative inline-flex items-center justify-center cursor-pointer"><input type="checkbox" id="news-toggle" class="sr-only peer" checked onchange="toggleNewsSection()"><div class="ios-switch peer-checked:bg-blue-400"></div></label>
+                    </div>
+                    <div class="flex items-center justify-center h-[32px] w-full bg-slate-900 border border-slate-700 rounded-md" title="飆股續勢戰法判斷">
+                        <label class="relative inline-flex items-center justify-center cursor-pointer"><input type="checkbox" id="feigu-toggle" class="sr-only peer" checked onchange="toggleFeiguInline()"><div class="ios-switch peer-checked:bg-amber-500"></div></label>
                     </div>
                 </div>
             </div>
@@ -220,6 +223,9 @@
 
         <!-- 決策引擎建議面板 -->
         <div id="advice-panel" class="hidden mt-2 transition-all"></div>
+
+        <!-- 飆股續勢戰法內嵌判斷面板 -->
+        <div id="feigu-inline-panel" class="mt-2 transition-all"></div>
 
         <!-- 自選清單列 -->
         <div id="fav-bar" class="mt-2 pt-2 border-t border-slate-700 flex items-center justify-center gap-2 min-h-[28px]">
@@ -911,10 +917,181 @@
             document.getElementById('floating-date-panel').classList.remove('hidden');
         }
         generateAdviceV3();
+        renderFeiguInlinePanel();
         renderComputexPanel();
         if (gFocusComputexYear !== null) {
             document.getElementById('chart').scrollIntoView({ behavior: 'instant', block: 'start' });
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  飆股續勢戰法 — 內嵌即時判斷（使用已載入的 globalIndicatorData）
+    // ═══════════════════════════════════════════════════════════
+
+    function toggleFeiguInline() {
+        const on = document.getElementById('feigu-toggle')?.checked;
+        const el = document.getElementById('feigu-inline-panel');
+        if (!el) return;
+        if (on) { el.classList.remove('hidden'); renderFeiguInlinePanel(); }
+        else { el.classList.add('hidden'); }
+    }
+
+    function renderFeiguInlinePanel() {
+        const panel = document.getElementById('feigu-inline-panel');
+        if (!panel) return;
+        if (!document.getElementById('feigu-toggle')?.checked) { panel.innerHTML=''; return; }
+        if (!globalIndicatorData || globalIndicatorData.length < 25) { panel.innerHTML=''; return; }
+
+        const data = globalIndicatorData;
+        const len  = data.length;
+        const last = data[len - 1];
+        const prev = data[len - 2] || last;
+
+        // ── MA 計算 ─────────────────────────────────────────────
+        const calcMA = (n) => (len >= n) ? data.slice(-n).reduce((s,d)=>s+d.close,0)/n : null;
+        const ma5   = calcMA(5);
+        const ma10  = calcMA(10);
+        const ma20  = calcMA(20);
+        const ma60  = calcMA(60);
+        const ma100 = calcMA(100); // 20WMA 近似
+
+        // ── 斜率（近5日均 vs 較前5日均）────────────────────────
+        const slopeUp = (n) => {
+            if (len < n + 6) return false;
+            const r = data.slice(-5).reduce((s,d)=>s+d.close,0)/5;
+            const o = data.slice(-n-5, -n).reduce((s,d)=>s+d.close,0)/5;
+            return r > o * 1.001;
+        };
+
+        // ── 階段一：三大條件 ────────────────────────────────────
+        const c_align   = !!(ma5&&ma10&&ma20&&ma60 && ma5>ma10&&ma10>ma20&&ma20>ma60);
+        const c_slopes  = !!(slopeUp(5)&&slopeUp(10)&&slopeUp(20)&&slopeUp(60));
+        const c_weekly  = !!(ma100 && last.close > ma100);
+        const c_initial = _checkInitialUptrend(data);
+        const p1_pass   = c_align && c_slopes && c_weekly && c_initial;
+
+        // ── 成交量 ──────────────────────────────────────────────
+        const v5ma = len>=5 ? data.slice(-5).reduce((s,d)=>s+d.volume,0)/5 : 0;
+        // 前波低（取前 2~61 筆，排除今日）
+        const prevWaveLow = len>=2 ? Math.min(...data.slice(Math.max(0,len-61), len-1).map(d=>d.low)) : 0;
+
+        // ── 狀態機 ──────────────────────────────────────────────
+        let state = 0, stateNote = '';
+        if (!p1_pass) {
+            state = -1;
+        } else if (ma5 && last.close < ma5) {
+            // 回檔中 — 先檢查淘汰條件
+            if (ma20 && last.low < ma20) {
+                state = -1; stateNote = `跌破月線 20MA ${fmt2(ma20)}`;
+            } else if (prevWaveLow > 0 && last.low <= prevWaveLow) {
+                state = -1; stateNote = `跌破前波低 ${fmt2(prevWaveLow)}`;
+            } else if (v5ma > 0 && last.volume < v5ma) {
+                state = 2; stateNote = `量縮 ${Math.round(last.volume/1000)}張 < V5MA ${Math.round(v5ma/1000)}張`;
+            } else {
+                state = 1; stateNote = `收盤 ${fmt2(last.close)} < 5MA ${fmt2(ma5)} ｜ 守月線 ${fmt2(ma20)}`;
+            }
+        }
+
+        // ── KD：從 globalProcessedData 取（已算好）────────────
+        const pLen  = globalProcessedData.length;
+        const kd    = pLen   ? globalProcessedData[pLen-1]   : {k:50,d:50};
+        const kdPrv = pLen>1 ? globalProcessedData[pLen-2]   : {k:50,d:50};
+
+        // ── 盤末預估量 ──────────────────────────────────────────
+        const now = new Date();
+        const tradedMins = Math.max(1, (now.getHours()-9)*60 + now.getMinutes());
+        const estVol = (tradedMins > 0 && tradedMins < 300)
+            ? Math.round(last.volume / (tradedMins/270) * 1.05)
+            : last.volume;
+
+        // ── 步驟四：六項訊號條件 ────────────────────────────────
+        const sc1 = last.close > prev.close;
+        const sc2 = estVol > v5ma && estVol > prev.volume;
+        const sc3 = last.close > last.open && (last.close - last.open) / last.close > 0.003;
+        const sc4 = !!ma5 && last.close > ma5;
+        const sc5 = last.close > prev.high;
+        const sc6 = kd.k >= kd.d && kdPrv.k < kdPrv.d;
+        const sigCount = [sc1,sc2,sc3,sc4,sc5,sc6].filter(Boolean).length;
+        const fullSig  = sigCount === 6 && state === 2;
+
+        // ── 狀態標籤 ────────────────────────────────────────────
+        const stateMap = {
+            '-1': ['不符合篩選',  'feigu-state-x'],
+            '0' : ['State 0 觀察中', 'feigu-state-0'],
+            '1' : ['State 1 回檔中', 'feigu-state-1'],
+            '2' : ['State 2 守穩量縮','feigu-state-2'],
+        };
+        const [sLabel, sCls] = stateMap[String(state)] || ['--','text-slate-500'];
+
+        // ── 渲染小工具 ──────────────────────────────────────────
+        const ck = (pass, txt) => `
+            <div class="flex items-center gap-1 text-[10px]">
+                <span class="w-3.5 h-3.5 shrink-0 flex items-center justify-center rounded-sm font-bold text-[9px]
+                    ${pass ? 'bg-emerald-900/60 text-emerald-400 border border-emerald-700' : 'bg-slate-800/80 text-slate-600 border border-slate-700/50'}">${pass?'✓':'·'}</span>
+                <span class="${pass?'text-slate-300':'text-slate-600'} leading-tight">${txt}</span>
+            </div>`;
+
+        // ── HTML ────────────────────────────────────────────────
+        const borderCls = fullSig
+            ? 'border-rose-500/60 bg-rose-900/10'
+            : p1_pass
+                ? 'border-amber-700/40 bg-amber-900/8'
+                : 'border-slate-700/40 bg-slate-800/20';
+
+        panel.innerHTML = `
+        <div class="rounded-lg border ${borderCls} p-2.5 text-xs">
+            <!-- 標題列 -->
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-1.5">
+                    <span>🔥</span>
+                    <span class="font-bold text-amber-300 text-[11px]">飆股續勢戰法判斷</span>
+                    <span class="text-[9px] text-slate-600 font-mono">${last.date}</span>
+                </div>
+                <span class="${sCls} text-[9px] px-1.5 py-0.5 rounded font-bold">${sLabel}</span>
+            </div>
+
+            <!-- 階段一：四條件 -->
+            <div class="mb-2">
+                <div class="text-[9px] font-bold text-slate-500 mb-1">📋 階段一：三大條件篩選</div>
+                <div class="grid grid-cols-2 gap-y-0.5 gap-x-2">
+                    ${ck(c_align,  `均線多排 5(${fmt2(ma5)})>10>20>60(${fmt2(ma60)})`)}
+                    ${ck(c_slopes, '四均線斜率全部向上')}
+                    ${ck(c_weekly, `週線(100MA ${fmt2(ma100)}) Close ${fmt2(last.close)}`)}
+                    ${ck(c_initial,'近期初升段（60日內低點）')}
+                </div>
+            </div>
+
+            ${p1_pass && state >= 0 ? `
+            <!-- 狀態說明 -->
+            ${stateNote ? `<div class="text-[9px] text-slate-400 bg-slate-900/40 px-2 py-1 rounded mb-1.5 leading-relaxed">${stateNote}</div>` : ''}
+
+            <!-- 步驟四：六條件 -->
+            <div>
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-[9px] font-bold text-slate-500">⚡ 步驟四：六項進場條件</span>
+                    <span class="text-[9px] font-bold tabular-nums ${sigCount===6?'text-rose-400':sigCount>=4?'text-amber-400':sigCount>=2?'text-yellow-600':'text-slate-600'}">${sigCount}/6 符合</span>
+                </div>
+                <div class="grid grid-cols-2 gap-y-0.5 gap-x-2">
+                    ${ck(sc1, `①價漲 收${fmt2(last.close)}>昨${fmt2(prev.close)}`)}
+                    ${ck(sc2, `②爆量 預估${Math.round(estVol/1000)}張>均${Math.round(v5ma/1000)}張`)}
+                    ${ck(sc3, `③紅K 收${fmt2(last.close)}>開${fmt2(last.open)}`)}
+                    ${ck(sc4, `④過5MA ${fmt2(ma5)}`)}
+                    ${ck(sc5, `⑤過昨高 ${fmt2(prev.high)}`)}
+                    ${ck(sc6, `⑥KD金叉 K:${Math.round(kd.k)} D:${Math.round(kd.d)}`)}
+                </div>
+                ${fullSig ? `
+                <div class="mt-1.5 text-[10px] font-bold text-rose-300 bg-rose-900/30 px-2 py-1.5 rounded border border-rose-700/40 text-center animate-pulse">
+                    🚨 六項全符合！建議 13:25–13:30 買進做多
+                </div>` : (sigCount >= 4 && state >= 1 ? `
+                <div class="mt-1 text-[9px] text-amber-400/80 bg-amber-900/20 px-2 py-1 rounded text-center">
+                    ⚠ 已符合 ${sigCount}/6 項，持續觀察
+                </div>` : '')}
+            </div>
+            ` : (!p1_pass ? `
+            <div class="text-[9px] text-slate-500 bg-slate-900/30 px-2 py-1.5 rounded text-center">
+                階段一尚有條件未通過 (${[c_align,c_slopes,c_weekly,c_initial].filter(Boolean).length}/4)，不進入動態監控
+            </div>` : '')}
+        </div>`;
     }
 
     function generateAdviceV3() {
