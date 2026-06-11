@@ -1,1 +1,4 @@
 啟動伺服器.bat
+backtest/finmind_token.txt
+backtest/data/
+data_test/

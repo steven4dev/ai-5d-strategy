@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI-5D 動能輪動回測 | 大盤均線 × 強勢股</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<style>
+  body { background-color: #0f172a; color: #f1f5f9; }
+  .dark-card { background-color: #1e293b; border: 1px solid #334155; border-radius: 10px; }
+  .stat-label { color: #94a3b8; font-size: 0.7rem; font-weight: 700; }
+  .text-up { color: #f43f5e; } .text-down { color: #34d399; }
+  .site-nav-bar{display:flex;justify-content:center;flex-wrap:wrap;gap:.5rem 1.2rem;padding:.45rem 1rem;background:rgba(0,0,0,.45);border-bottom:1px solid rgba(255,255,255,.08);font-size:.76rem;font-family:"Segoe UI",system-ui,sans-serif;}
+  .site-nav-bar a{color:#94a3b8;text-decoration:none;font-weight:600;padding:.15rem .5rem;border-radius:4px;transition:color .15s,background .15s;}
+  .site-nav-bar a:hover{color:#fff;background:rgba(255,255,255,.08);}
+  .site-nav-bar a.active{color:#4f8ef7;background:rgba(79,142,247,.12);}
+  table.trades th { color:#94a3b8; font-size:0.7rem; font-weight:700; padding:8px 10px; border-bottom:1px solid #334155; white-space:nowrap; }
+  table.trades td { font-size:0.8rem; padding:8px 10px; border-bottom:1px solid #1e293b; white-space:nowrap; }
+  table.trades tr:hover td { background:#263348; }
+</style>
+</head>
+<body class="min-h-screen pb-16">
+
+<nav class="site-nav-bar">
+  <a href="https://steven4dev.github.io/ETF-dca-backtest/">📊 ETF 回測</a>
+  <a href="https://steven4dev.github.io/taiwan-market-radar/">📡 台股雷達</a>
+  <a href="https://steven4dev.github.io/ai-5d-strategy/AI-5D.html">🎯 AI-5D 策略</a>
+  <a href="https://steven4dev.github.io/ai-5d-strategy/feigu.html">🚀 飆股雷達</a>
+  <a href="https://steven4dev.github.io/ai-5d-strategy/backtest.html" class="active">🏁 動能輪動回測</a>
+</nav>
+
+<div class="max-w-5xl mx-auto px-4 mt-6">
+
+  <!-- 標題 -->
+  <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
+    <div>
+      <h1 class="text-xl font-bold text-white"><i class="fa-solid fa-flag-checkered text-indigo-400 mr-2"></i>AI-5D 強勢動能與大盤均線輪動回測</h1>
+      <p class="text-xs text-slate-400 mt-1" id="subtitle">載入中…</p>
+    </div>
+    <button onclick="openRules()" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg"><i class="fa-solid fa-circle-info mr-1"></i>策略規則</button>
+  </div>
+
+  <!-- 時間區間選擇 -->
+  <div class="dark-card p-3 mb-4 flex flex-wrap items-center gap-3">
+    <span class="text-xs font-bold text-slate-300"><i class="fa-solid fa-calendar-days text-indigo-400 mr-1"></i>回測區間</span>
+    <input type="date" id="range-start" class="bg-slate-900 border border-slate-600 rounded-md text-xs text-white px-2 py-1.5 outline-none focus:border-indigo-400">
+    <span class="text-slate-500 text-xs">～</span>
+    <input type="date" id="range-end" class="bg-slate-900 border border-slate-600 rounded-md text-xs text-white px-2 py-1.5 outline-none focus:border-indigo-400">
+    <div class="flex gap-1.5 flex-wrap" id="quick-btns">
+      <button data-y="all" class="qbtn text-[11px] px-2.5 py-1 rounded-md bg-indigo-600 text-white">全部</button>
+      <button data-y="1" class="qbtn text-[11px] px-2.5 py-1 rounded-md bg-slate-700 text-slate-300 hover:bg-slate-600">近1年</button>
+      <button data-y="3" class="qbtn text-[11px] px-2.5 py-1 rounded-md bg-slate-700 text-slate-300 hover:bg-slate-600">近3年</button>
+      <button data-y="5" class="qbtn text-[11px] px-2.5 py-1 rounded-md bg-slate-700 text-slate-300 hover:bg-slate-600">近5年</button>
+    </div>
+    <span class="text-[10px] text-slate-500 ml-auto" id="range-note"></span>
+  </div>
+
+  <!-- 統計卡 -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5" id="stat-cards"></div>
+
+  <!-- 權益曲線 -->
+  <div class="dark-card p-4 mb-5">
+    <div class="text-sm font-bold text-slate-200 mb-2"><i class="fa-solid fa-chart-line text-indigo-400 mr-1"></i>權益曲線 vs 大盤（同期投入 10 萬元）</div>
+    <div id="equity-chart" style="height:380px;"></div>
+  </div>
+
+  <!-- 持有中部位 -->
+  <div id="open-pos-box"></div>
+
+  <!-- 交易明細 -->
+  <div class="dark-card p-4 overflow-x-auto">
+    <div class="text-sm font-bold text-slate-200 mb-2"><i class="fa-solid fa-list-check text-indigo-400 mr-1"></i>交易明細</div>
+    <table class="trades w-full text-left">
+      <thead><tr>
+        <th>#</th><th>標的</th><th>買進日</th><th>買進價</th><th>股數</th>
+        <th>賣出日</th><th>賣出價</th><th>損益(元)</th><th>報酬率</th>
+      </tr></thead>
+      <tbody id="trade-rows"></tbody>
+    </table>
+  </div>
+
+  <p class="text-[11px] text-slate-500 mt-4 leading-relaxed">
+    資料來源：Yahoo Finance 歷史日 K（還原權息）。手續費 0.1425%×2.8 折（低消 1 元）、賣出證交稅 0.3%、次日開盤成交、支援零股。
+    自選區間之統計係由完整回測（2021 起）的權益曲線切片計算，交易時點仍以完整回測為準；若起點落在持股期間，該段已含持股損益。
+    回測未含已下市股票（倖存者偏差）；MVP 版不處理停牌與下市事件。本頁僅供策略研究，不構成投資建議。
+    <span id="gen-time"></span>
+  </p>
+</div>
+
+<!-- 策略規則 Modal -->
+<div id="rules-modal" class="fixed inset-0 z-[999] hidden items-center justify-center bg-black/80 backdrop-blur-sm px-4" style="display:none;">
+  <div class="bg-slate-800 border border-slate-600 rounded-xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col">
+    <div class="flex items-center justify-between p-4 border-b border-slate-700">
+      <h2 class="text-lg font-bold text-white"><i class="fa-solid fa-scroll mr-2 text-indigo-400"></i>策略規則</h2>
+      <button onclick="closeRules()" class="text-slate-400 hover:text-white w-8 h-8 rounded-full hover:bg-slate-700"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="p-5 overflow-y-auto text-sm text-slate-300 space-y-3">
+      <div><strong class="text-emerald-400">進場：</strong>加權指數連續 3 日收盤站上 200MA → 次日開盤「全額」買進過去 30 個交易日漲幅最大的個股（平手比累計成交量）。</div>
+      <div><strong class="text-rose-400">出場：</strong>加權指數連續 3 日收盤跌破 20MA → 次日開盤清倉，回到空手。</div>
+      <div><strong class="text-indigo-300">持有：</strong>進場後死抱不換股，直到大盤觸發出場。一次只持有一檔。</div>
+      <div><strong class="text-amber-300">邊界：</strong>開盤漲停一字鎖死買不到 → 順延次日續試；跌停鎖死賣不掉 → 順延次日續賣。待買期間若大盤轉空則放棄買進。</div>
+      <div class="text-xs text-slate-500">回測期間 2021-01-01 起、初始資金 10 萬元、上市櫃一般股票（排除 ETF／權證／特別股）。</div>
+    </div>
+  </div>
+</div>
+
+<script src="backtest/results/results.js"></script>
+<script>
+const D = typeof BACKTEST_DATA !== "undefined" ? BACKTEST_DATA : null;
+function fmt(n){ return n.toLocaleString("zh-TW", {maximumFractionDigits:0}); }
+function pct(n){ return (n>=0?"+":"") + n.toFixed(2) + "%"; }
+
+function openRules(){ const m=document.getElementById("rules-modal"); m.style.display="flex"; }
+function closeRules(){ document.getElementById("rules-modal").style.display="none"; }
+
+if (!D) {
+  document.getElementById("subtitle").textContent = "尚未產生回測資料（請先執行 backtest.py）";
+} else {
+  const p = D.params;
+  document.getElementById("subtitle").textContent =
+    `資料期間 ${p.start} ~ ${p.end}｜標的池 ${p.stock_count} 檔｜初始資金 ${fmt(p.initial_cash)} 元`;
+  document.getElementById("gen-time").textContent = `報告產生時間：${D.generated_at}`;
+
+  const startInput = document.getElementById("range-start");
+  const endInput = document.getElementById("range-end");
+  startInput.min = endInput.min = D.dates[0];
+  startInput.max = endInput.max = D.dates[D.dates.length - 1];
+  startInput.value = D.dates[0];
+  endInput.value = D.dates[D.dates.length - 1];
+
+  // 二分搜尋：回傳 >= 目標日期的第一個索引
+  function lowerBound(dateStr) {
+    let lo = 0, hi = D.dates.length - 1, ans = D.dates.length - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (D.dates[mid] >= dateStr) { ans = mid; hi = mid - 1; } else lo = mid + 1;
+    }
+    return ans;
+  }
+
+  function render() {
+    let s = startInput.value || D.dates[0];
+    let e = endInput.value || D.dates[D.dates.length - 1];
+    if (s > e) [s, e] = [e, s];
+    const i0 = lowerBound(s);
+    let i1 = lowerBound(e);
+    if (D.dates[i1] > e && i1 > 0) i1--;
+    if (i1 <= i0) { document.getElementById("range-note").textContent = "區間太短"; return; }
+
+    const dates = D.dates.slice(i0, i1 + 1);
+    // 區間起點正規化為初始資金，策略與大盤同基準比較
+    const eqBase = D.equity[i0], txBase = D.taiex[i0];
+    const equity = D.equity.slice(i0, i1 + 1).map(v => v / eqBase * p.initial_cash);
+    const taiex = D.taiex.slice(i0, i1 + 1).map(v => v / txBase * p.initial_cash);
+
+    // 區間統計
+    const finalEq = equity[equity.length - 1];
+    const totalRet = finalEq / p.initial_cash - 1;
+    const taiexRet = taiex[taiex.length - 1] / p.initial_cash - 1;
+    const years = (new Date(dates[dates.length - 1]) - new Date(dates[0])) / 86400000 / 365.25;
+    const cagr = years > 0 ? Math.pow(finalEq / p.initial_cash, 1 / years) - 1 : 0;
+    let peak = equity[0], maxDD = 0;
+    for (const v of equity) { peak = Math.max(peak, v); maxDD = Math.max(maxDD, (peak - v) / peak); }
+    // 區間內的完成交易（賣出日落在區間內）
+    const trades = D.trades.filter(t => t.sell_date >= dates[0] && t.sell_date <= dates[dates.length - 1]
+                                     && t.buy_date >= dates[0]);
+    const wins = trades.filter(t => t.pnl > 0);
+
+    document.getElementById("range-note").textContent =
+      `${dates[0]} ~ ${dates[dates.length - 1]}（${dates.length} 個交易日）`;
+
+    const cards = [
+      ["區間期末權益", fmt(finalEq) + " 元", totalRet>=0?"text-up":"text-down"],
+      ["總報酬率", pct(totalRet*100) + `（大盤 ${pct(taiexRet*100)}）`, totalRet>=0?"text-up":"text-down"],
+      ["年化報酬", pct(cagr*100), cagr>=0?"text-up":"text-down"],
+      ["最大回撤", "-" + (maxDD*100).toFixed(2) + "%", "text-amber-400"],
+      ["交易次數", trades.length + " 次", "text-slate-200"],
+      ["勝率", trades.length ? (wins.length/trades.length*100).toFixed(0) + "%（" + wins.length + "勝）" : "—", "text-slate-200"],
+    ];
+    document.getElementById("stat-cards").innerHTML = cards.map(c =>
+      `<div class="dark-card p-3 text-center"><div class="stat-label">${c[0]}</div>
+       <div class="font-bold text-sm mt-1 ${c[2]}">${c[1]}</div></div>`).join("");
+
+    Plotly.react("equity-chart", [
+      { x: dates, y: taiex, name: "加權指數", line: {color:"#64748b", width:1.5}, hovertemplate:"%{x}<br>大盤 %{y:,.0f}<extra></extra>" },
+      { x: dates, y: equity, name: "策略權益", line: {color:"#60a5fa", width:2.2}, fill:"tozeroy", fillcolor:"rgba(96,165,250,0.06)", hovertemplate:"%{x}<br>權益 %{y:,.0f}<extra></extra>" },
+    ], {
+      paper_bgcolor:"transparent", plot_bgcolor:"transparent",
+      font:{color:"#94a3b8", size:11},
+      margin:{l:55,r:15,t:10,b:35},
+      legend:{orientation:"h", y:1.08, x:0},
+      xaxis:{gridcolor:"#1e293b"},
+      yaxis:{gridcolor:"#334155", tickformat:",.0f"},
+      hovermode:"x unified",
+    }, {responsive:true, displayModeBar:false});
+
+    document.getElementById("trade-rows").innerHTML = trades.map((t,i) => {
+      const cls = t.pnl>=0?"text-up":"text-down";
+      return `<tr><td class="text-slate-500">${i+1}</td>
+        <td class="font-bold text-slate-100">${t.stock_id} ${t.name}</td>
+        <td>${t.buy_date}</td><td>${t.buy_price}</td><td>${fmt(t.shares)}</td>
+        <td>${t.sell_date}</td><td>${t.sell_price}</td>
+        <td class="${cls} font-bold">${t.pnl>=0?"+":""}${fmt(t.pnl)}</td>
+        <td class="${cls} font-bold">${pct(t.ret_pct)}</td></tr>`;
+    }).join("") || `<tr><td colspan="9" class="text-slate-500 text-center py-6">所選區間內無完成交易</td></tr>`;
+  }
+
+  // 持有中部位（不隨區間變動）
+  if (D.open_position) {
+    const o = D.open_position;
+    const cls = o.unrealized_pnl>=0?"text-up":"text-down";
+    document.getElementById("open-pos-box").innerHTML =
+      `<div class="dark-card p-4 mb-5 border-l-4 border-indigo-500">
+        <div class="text-sm font-bold text-slate-200 mb-1"><i class="fa-solid fa-hand-holding-dollar text-indigo-400 mr-1"></i>目前持有中</div>
+        <div class="text-sm">${o.stock_id} ${o.name}｜${o.buy_date} 買進 ${fmt(o.shares)} 股 @ ${o.buy_price}
+        ｜最新價 ${o.last_close}｜未實現損益 <span class="${cls} font-bold">${o.unrealized_pnl>=0?"+":""}${fmt(o.unrealized_pnl)} 元</span></div>
+      </div>`;
+  }
+
+  startInput.addEventListener("change", () => { setActiveBtn(null); render(); });
+  endInput.addEventListener("change", () => { setActiveBtn(null); render(); });
+
+  function setActiveBtn(btn) {
+    document.querySelectorAll(".qbtn").forEach(b => {
+      b.className = "qbtn text-[11px] px-2.5 py-1 rounded-md bg-slate-700 text-slate-300 hover:bg-slate-600";
+    });
+    if (btn) btn.className = "qbtn text-[11px] px-2.5 py-1 rounded-md bg-indigo-600 text-white";
+  }
+  document.querySelectorAll(".qbtn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const last = D.dates[D.dates.length - 1];
+      if (btn.dataset.y === "all") {
+        startInput.value = D.dates[0];
+      } else {
+        const d = new Date(last);
+        d.setFullYear(d.getFullYear() - parseInt(btn.dataset.y));
+        const target = d.toISOString().slice(0, 10);
+        startInput.value = target < D.dates[0] ? D.dates[0] : target;
+      }
+      endInput.value = last;
+      setActiveBtn(btn);
+      render();
+    });
+  });
+
+  render();
+}
+</script>
+</body>
+</html>
