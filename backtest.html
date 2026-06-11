@@ -57,6 +57,13 @@
     <span class="text-[10px] text-slate-500 ml-auto" id="range-note"></span>
   </div>
 
+  <!-- 動能回看天數選擇 -->
+  <div class="dark-card p-3 mb-4 flex flex-wrap items-center gap-3">
+    <span class="text-xs font-bold text-slate-300"><i class="fa-solid fa-gauge-high text-indigo-400 mr-1"></i>動能回看天數</span>
+    <div class="flex gap-1.5 flex-wrap" id="momentum-btns"></div>
+    <span class="text-[10px] text-slate-500 ml-auto">選股條件：買進過去 N 個交易日漲幅最大之個股（每組天數為獨立完整回測）</span>
+  </div>
+
   <!-- 統計卡 -->
   <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5" id="stat-cards"></div>
 
@@ -119,9 +126,28 @@ if (!D) {
   document.getElementById("subtitle").textContent = "尚未產生回測資料（請先執行 backtest.py）";
 } else {
   const p = D.params;
+  let curDays = String(p.default_momentum);
+  let V = D.variants[curDays];
   document.getElementById("subtitle").textContent =
     `資料期間 ${p.start} ~ ${p.end}｜標的池 ${p.stock_count} 檔｜初始資金 ${fmt(p.initial_cash)} 元`;
   document.getElementById("gen-time").textContent = `報告產生時間：${D.generated_at}`;
+
+  // 動能天數按鈕
+  const mbox = document.getElementById("momentum-btns");
+  mbox.innerHTML = p.momentum_options.map(d =>
+    `<button data-d="${d}" class="mbtn text-[11px] px-2.5 py-1 rounded-md ${String(d)===curDays?"bg-indigo-600 text-white":"bg-slate-700 text-slate-300 hover:bg-slate-600"}">${d} 日</button>`).join("");
+  mbox.querySelectorAll(".mbtn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      curDays = btn.dataset.d;
+      V = D.variants[curDays];
+      mbox.querySelectorAll(".mbtn").forEach(b => {
+        b.className = "mbtn text-[11px] px-2.5 py-1 rounded-md " +
+          (b.dataset.d === curDays ? "bg-indigo-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600");
+      });
+      renderOpenPos();
+      render();
+    });
+  });
 
   const startInput = document.getElementById("range-start");
   const endInput = document.getElementById("range-end");
@@ -151,8 +177,8 @@ if (!D) {
 
     const dates = D.dates.slice(i0, i1 + 1);
     // 區間起點正規化為初始資金，策略與大盤同基準比較
-    const eqBase = D.equity[i0], txBase = D.taiex[i0];
-    const equity = D.equity.slice(i0, i1 + 1).map(v => v / eqBase * p.initial_cash);
+    const eqBase = V.equity[i0], txBase = D.taiex[i0];
+    const equity = V.equity.slice(i0, i1 + 1).map(v => v / eqBase * p.initial_cash);
     const taiex = D.taiex.slice(i0, i1 + 1).map(v => v / txBase * p.initial_cash);
 
     // 區間統計
@@ -164,7 +190,7 @@ if (!D) {
     let peak = equity[0], maxDD = 0;
     for (const v of equity) { peak = Math.max(peak, v); maxDD = Math.max(maxDD, (peak - v) / peak); }
     // 區間內的完成交易（賣出日落在區間內）
-    const trades = D.trades.filter(t => t.sell_date >= dates[0] && t.sell_date <= dates[dates.length - 1]
+    const trades = V.trades.filter(t => t.sell_date >= dates[0] && t.sell_date <= dates[dates.length - 1]
                                      && t.buy_date >= dates[0]);
     const wins = trades.filter(t => t.pnl > 0);
 
@@ -207,17 +233,20 @@ if (!D) {
     }).join("") || `<tr><td colspan="9" class="text-slate-500 text-center py-6">所選區間內無完成交易</td></tr>`;
   }
 
-  // 持有中部位（不隨區間變動）
-  if (D.open_position) {
-    const o = D.open_position;
+  // 持有中部位（隨動能天數變動，不隨區間變動）
+  function renderOpenPos() {
+    const box = document.getElementById("open-pos-box");
+    if (!V.open_position) { box.innerHTML = ""; return; }
+    const o = V.open_position;
     const cls = o.unrealized_pnl>=0?"text-up":"text-down";
-    document.getElementById("open-pos-box").innerHTML =
+    box.innerHTML =
       `<div class="dark-card p-4 mb-5 border-l-4 border-indigo-500">
         <div class="text-sm font-bold text-slate-200 mb-1"><i class="fa-solid fa-hand-holding-dollar text-indigo-400 mr-1"></i>目前持有中</div>
         <div class="text-sm">${o.stock_id} ${o.name}｜${o.buy_date} 買進 ${fmt(o.shares)} 股 @ ${o.buy_price}
         ｜最新價 ${o.last_close}｜未實現損益 <span class="${cls} font-bold">${o.unrealized_pnl>=0?"+":""}${fmt(o.unrealized_pnl)} 元</span></div>
       </div>`;
   }
+  renderOpenPos();
 
   startInput.addEventListener("change", () => { setActiveBtn(null); render(); });
   endInput.addEventListener("change", () => { setActiveBtn(null); render(); });
