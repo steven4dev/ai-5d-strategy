@@ -20,8 +20,8 @@ TOKEN_FILE = os.path.join(BASE_DIR, "finmind_token.txt")
 STOCK_LIST_FILE = os.path.join(BASE_DIR, "stock_list.csv")
 FAILED_FILE = os.path.join(BASE_DIR, "failed_downloads.csv")
 
-# 回測期間 2021-01-01 起；提前一年下載供 200MA / 30日漲幅暖身
-DOWNLOAD_START = datetime.date(2020, 1, 1)
+# 回測期間 2016-01-01 起；提前一年下載供 200MA / 動能漲幅暖身
+DOWNLOAD_START = datetime.date(2015, 1, 1)
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 REQUEST_INTERVAL = 0.4  # 秒，避免 Yahoo 限速
 
@@ -131,11 +131,12 @@ def download_symbol(symbol, out_path):
 
 
 def main():
+    force = "--force" in sys.argv  # 覆寫既有檔案（變更下載起始日時使用）
     os.makedirs(DATA_DIR, exist_ok=True)
 
     # 大盤指數
     taiex_path = os.path.join(DATA_DIR, "TAIEX.csv")
-    if not os.path.exists(taiex_path):
+    if force or not os.path.exists(taiex_path):
         n = download_symbol("^TWII", taiex_path)
         print(f"[TAIEX] ^TWII {n} 筆")
         if n == 0:
@@ -150,8 +151,20 @@ def main():
     for idx, s in enumerate(stocks, 1):
         out_path = os.path.join(DATA_DIR, f"{s['stock_id']}.csv")
         if os.path.exists(out_path):
-            skipped += 1
-            continue
+            if not force:
+                skipped += 1
+                continue
+            # force 模式：檔案若已涵蓋新起始年（或標的上市較晚）仍可跳過 —
+            # 以首筆日期是否落在舊起始日(2020)之前判斷是否為新版資料
+            try:
+                with open(out_path, encoding="utf-8") as f:
+                    f.readline()
+                    first_date = f.readline().split(",")[0]
+                if first_date and first_date < "2020-01-01":
+                    skipped += 1
+                    continue
+            except Exception:
+                pass
         symbol = yahoo_symbol(s["stock_id"], s["type"])
         try:
             n = download_symbol(symbol, out_path)

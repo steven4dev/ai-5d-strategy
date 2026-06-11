@@ -20,7 +20,7 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 STOCK_LIST_FILE = os.path.join(BASE_DIR, "stock_list.csv")
 RESULT_DIR = os.path.join(BASE_DIR, "results")
 
-BACKTEST_START = datetime.date(2021, 1, 1)
+BACKTEST_START = datetime.date(2016, 1, 1)
 INITIAL_CASH = 100_000.0
 FEE_RATE = 0.001425 * 0.28   # 手續費 0.1425% × 2.8 折
 MIN_FEE = 1.0                # 最低手續費 1 元
