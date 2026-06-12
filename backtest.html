@@ -101,7 +101,8 @@
     <table class="trades w-full text-left">
       <thead><tr>
         <th>#</th><th>標的</th><th>買進日</th><th>買進價</th><th>股數</th>
-        <th>賣出日</th><th>賣出價</th><th>損益(元)</th><th>報酬率</th>
+        <th>買進成本(元)</th><th>賣出日</th><th>賣出價</th><th>賣出實收(元)</th>
+        <th>損益(元)</th><th>報酬率</th>
       </tr></thead>
       <tbody id="trade-rows"></tbody>
     </table>
@@ -362,10 +363,12 @@ if (!D) {
       return `<tr><td class="text-slate-500">${i+1}</td>
         <td class="font-bold text-slate-100">${t.stock_id} ${t.name}</td>
         <td>${t.buy_date}</td><td>${t.buy_price}</td><td>${fmt(t.shares)}</td>
+        <td>${fmt(t.buy_cost)}</td>
         <td>${t.sell_date}</td><td>${t.sell_price}</td>
+        <td>${fmt(t.sell_net)}</td>
         <td class="${cls} font-bold">${t.pnl>=0?"+":""}${fmt(t.pnl)}</td>
         <td class="${cls} font-bold">${pct(t.ret_pct)}</td></tr>`;
-    }).join("") || `<tr><td colspan="9" class="text-slate-500 text-center py-6">所選區間內無完成交易</td></tr>`;
+    }).join("") || `<tr><td colspan="11" class="text-slate-500 text-center py-6">所選區間內無完成交易</td></tr>`;
   }
 
   // 持有中部位（隨動能天數變動，不隨區間變動）
