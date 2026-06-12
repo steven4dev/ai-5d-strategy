@@ -49,10 +49,12 @@
     <span class="text-slate-500 text-xs">～</span>
     <input type="date" id="range-end" class="bg-slate-900 border border-slate-600 rounded-md text-xs text-white px-2 py-1.5 outline-none focus:border-indigo-400">
     <div class="flex gap-1.5 flex-wrap" id="quick-btns">
-      <button data-y="all" class="qbtn text-[11px] px-2.5 py-1 rounded-md bg-indigo-600 text-white">全部</button>
-      <button data-y="1" class="qbtn text-[11px] px-2.5 py-1 rounded-md bg-slate-700 text-slate-300 hover:bg-slate-600">近1年</button>
-      <button data-y="3" class="qbtn text-[11px] px-2.5 py-1 rounded-md bg-slate-700 text-slate-300 hover:bg-slate-600">近3年</button>
-      <button data-y="5" class="qbtn text-[11px] px-2.5 py-1 rounded-md bg-slate-700 text-slate-300 hover:bg-slate-600">近5年</button>
+      <button data-m="6" class="qbtn text-[11px] px-2.5 py-1 rounded-md bg-slate-700 text-slate-300 hover:bg-slate-600">半年</button>
+      <button data-m="12" class="qbtn text-[11px] px-2.5 py-1 rounded-md bg-slate-700 text-slate-300 hover:bg-slate-600">近1年</button>
+      <button data-m="24" class="qbtn text-[11px] px-2.5 py-1 rounded-md bg-slate-700 text-slate-300 hover:bg-slate-600">近2年</button>
+      <button data-m="36" class="qbtn text-[11px] px-2.5 py-1 rounded-md bg-slate-700 text-slate-300 hover:bg-slate-600">近3年</button>
+      <button data-m="60" class="qbtn text-[11px] px-2.5 py-1 rounded-md bg-slate-700 text-slate-300 hover:bg-slate-600">近5年</button>
+      <button data-m="all" class="qbtn text-[11px] px-2.5 py-1 rounded-md bg-indigo-600 text-white">全部</button>
     </div>
     <span class="text-[10px] text-slate-500 ml-auto" id="range-note"></span>
   </div>
@@ -398,11 +400,11 @@ if (!D) {
   document.querySelectorAll(".qbtn").forEach(btn => {
     btn.addEventListener("click", () => {
       const last = D.dates[D.dates.length - 1];
-      if (btn.dataset.y === "all") {
+      if (btn.dataset.m === "all") {
         startInput.value = D.dates[0];
       } else {
         const d = new Date(last);
-        d.setFullYear(d.getFullYear() - parseInt(btn.dataset.y));
+        d.setMonth(d.getMonth() - parseInt(btn.dataset.m));
         const target = d.toISOString().slice(0, 10);
         startInput.value = target < D.dates[0] ? D.dates[0] : target;
       }
