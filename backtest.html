@@ -262,9 +262,31 @@ if (!D) {
       }
     }
 
+    // 買賣點間的虛線連線（紅=該筆獲利、綠=該筆虧損）
+    const winLineX = [], winLineY = [], lossLineX = [], lossLineY = [];
+    for (const t of trades) {
+      const bi = dateIdx.get(t.buy_date), si = dateIdx.get(t.sell_date);
+      if (bi === undefined || si === undefined) continue;
+      const [lx, ly] = t.pnl >= 0 ? [winLineX, winLineY] : [lossLineX, lossLineY];
+      lx.push(t.buy_date, t.sell_date, null);
+      ly.push(equity[bi], equity[si], null);
+    }
+    if (V.open_position) {
+      const o = V.open_position, bi = dateIdx.get(o.buy_date);
+      if (bi !== undefined) {
+        const [lx, ly] = o.unrealized_pnl >= 0 ? [winLineX, winLineY] : [lossLineX, lossLineY];
+        lx.push(o.buy_date, dates[dates.length - 1], null);
+        ly.push(equity[bi], equity[equity.length - 1], null);
+      }
+    }
+
     Plotly.react("equity-chart", [
       { x: dates, y: taiex, name: "加權指數", line: {color:"#64748b", width:1.5}, hovertemplate:"%{x}<br>大盤 %{y:,.0f}<extra></extra>" },
       { x: dates, y: equity, name: "策略權益", line: {color:"#60a5fa", width:2.2}, fill:"tozeroy", fillcolor:"rgba(96,165,250,0.06)", hovertemplate:"%{x}<br>權益 %{y:,.0f}<extra></extra>" },
+      { x: winLineX, y: winLineY, name: "獲利持有段", mode: "lines",
+        line: {color: "rgba(244,63,94,0.55)", width: 1.4, dash: "dash"}, hoverinfo: "skip" },
+      { x: lossLineX, y: lossLineY, name: "虧損持有段", mode: "lines",
+        line: {color: "rgba(52,211,153,0.55)", width: 1.4, dash: "dash"}, hoverinfo: "skip" },
       { x: buyX, y: buyY, name: "買進", mode: "markers",
         marker: {symbol: "triangle-up", size: 9, color: "#f43f5e", line: {color: "#fda4af", width: 1}},
         text: buyTxt, hovertemplate: "%{x}<br>%{text}<extra></extra>" },
