@@ -240,9 +240,37 @@ if (!D) {
       `<div class="dark-card p-3 text-center"><div class="stat-label">${c[0]}</div>
        <div class="font-bold text-sm mt-1 ${c[2]}">${c[1]}</div></div>`).join("");
 
+    // 買賣點標記（標在權益曲線上，仿自動交易程式）
+    const dateIdx = new Map(dates.map((d, i) => [d, i]));
+    const buyX = [], buyY = [], buyTxt = [], sellX = [], sellY = [], sellTxt = [];
+    for (const t of trades) {
+      const bi = dateIdx.get(t.buy_date), si = dateIdx.get(t.sell_date);
+      if (bi !== undefined) {
+        buyX.push(t.buy_date); buyY.push(equity[bi]);
+        buyTxt.push(`買進 ${t.stock_id} ${t.name}<br>@${t.buy_price}｜${fmt(t.shares)} 股`);
+      }
+      if (si !== undefined) {
+        sellX.push(t.sell_date); sellY.push(equity[si]);
+        sellTxt.push(`賣出 ${t.stock_id} ${t.name}<br>@${t.sell_price}｜損益 ${t.pnl>=0?"+":""}${fmt(t.pnl)} (${pct(t.ret_pct)})`);
+      }
+    }
+    if (V.open_position) {
+      const o = V.open_position, bi = dateIdx.get(o.buy_date);
+      if (bi !== undefined) {
+        buyX.push(o.buy_date); buyY.push(equity[bi]);
+        buyTxt.push(`買進 ${o.stock_id} ${o.name}（持有中）<br>@${o.buy_price}｜${fmt(o.shares)} 股`);
+      }
+    }
+
     Plotly.react("equity-chart", [
       { x: dates, y: taiex, name: "加權指數", line: {color:"#64748b", width:1.5}, hovertemplate:"%{x}<br>大盤 %{y:,.0f}<extra></extra>" },
       { x: dates, y: equity, name: "策略權益", line: {color:"#60a5fa", width:2.2}, fill:"tozeroy", fillcolor:"rgba(96,165,250,0.06)", hovertemplate:"%{x}<br>權益 %{y:,.0f}<extra></extra>" },
+      { x: buyX, y: buyY, name: "買進", mode: "markers",
+        marker: {symbol: "triangle-up", size: 9, color: "#f43f5e", line: {color: "#fda4af", width: 1}},
+        text: buyTxt, hovertemplate: "%{x}<br>%{text}<extra></extra>" },
+      { x: sellX, y: sellY, name: "賣出", mode: "markers",
+        marker: {symbol: "triangle-down", size: 9, color: "#34d399", line: {color: "#6ee7b7", width: 1}},
+        text: sellTxt, hovertemplate: "%{x}<br>%{text}<extra></extra>" },
     ], {
       paper_bgcolor:"transparent", plot_bgcolor:"transparent",
       font:{color:"#94a3b8", size:11},
