@@ -24,7 +24,8 @@ BACKTEST_START = datetime.date(2016, 1, 1)
 INITIAL_CASH = 100_000.0
 FEE_RATE = 0.001425 * 0.28   # 手續費 0.1425% × 2.8 折
 MIN_FEE = 1.0                # 最低手續費 1 元
-TAX_RATE = 0.003             # 證交稅（賣出）
+TAX_RATE = 0.003             # 證交稅（賣出，一般股票）
+ETF_TAX_RATE = 0.001         # 證交稅（賣出，ETF）
 MOMENTUM_OPTIONS = [5, 10, 20, 30, 60, 90, 120]  # 動能回看天數選項
 DEFAULT_MOMENTUM = 30        # SRS 預設值（報告檔以此輸出）
 LIMIT_PCT = 0.10             # 一般股票漲跌幅 10%
@@ -177,6 +178,92 @@ def simulate(momentum_days, taiex_dates, closes, buy_signal, sell_signal,
     return trades, equity, open_pos
 
 
+def simulate_etf(etf_id, etf_name, bars, trading_dates, start_i,
+                 enter_sig, exit_sig, always_hold=False):
+    """ETF 擇時回測：進出場以大盤訊號決定，次日開盤成交，使用還原價含息。
+    always_hold=True 時為買進持有（僅期初買進一次）。"""
+    n = len(trading_dates)
+    by_date = {b.date: k for k, b in enumerate(bars)}
+
+    def adj_open(k):
+        b = bars[k]
+        return b.open * (b.adj_close / b.close) if b.close else b.open
+
+    cash = INITIAL_CASH
+    shares = 0
+    state = "EMPTY"
+    pending = "BUY" if always_hold else None
+    trades, equity = [], []
+    entry = None
+    last_adj_close = None
+
+    for i in range(start_i, n):
+        today = trading_dates[i]
+        k = by_date.get(today)
+
+        # === 開盤執行 ===
+        if k is not None and pending:
+            if pending == "BUY" and state == "EMPTY":
+                price = adj_open(k)
+                qty = int(cash / (price * (1 + FEE_RATE)))
+                while qty > 0 and qty * price + trade_fee(qty * price) > cash:
+                    qty -= 1
+                if qty > 0:
+                    amount = qty * price
+                    fee = trade_fee(amount)
+                    cash -= amount + fee
+                    shares = qty
+                    state = "HOLDING"
+                    entry = {"date": today, "price": price, "cost": amount + fee}
+                pending = None
+            elif pending == "SELL" and state == "HOLDING":
+                price = adj_open(k)
+                amount = shares * price
+                fee = trade_fee(amount)
+                tax = amount * ETF_TAX_RATE
+                cash += amount - fee - tax
+                trades.append({
+                    "stock_id": etf_id, "name": etf_name,
+                    "buy_date": entry["date"].isoformat(),
+                    "buy_price": round(entry["price"], 2),
+                    "shares": shares,
+                    "buy_cost": round(entry["cost"], 2),
+                    "sell_date": today.isoformat(),
+                    "sell_price": round(price, 2),
+                    "sell_net": round(amount - fee - tax, 2),
+                    "pnl": round(amount - fee - tax - entry["cost"], 2),
+                    "ret_pct": round((amount - fee - tax) / entry["cost"] * 100 - 100, 2),
+                })
+                shares, state, entry, pending = 0, "EMPTY", None, None
+
+        # === 收盤判定（買進持有不再進出）===
+        if not always_hold:
+            if state == "EMPTY" and enter_sig[i]:
+                pending = "BUY"
+            elif state == "EMPTY" and pending == "BUY" and exit_sig[i]:
+                pending = None  # 待買期間轉空，放棄
+            elif state == "HOLDING" and exit_sig[i]:
+                pending = "SELL"
+
+        # === 每日權益（還原收盤估值）===
+        if k is not None:
+            last_adj_close = bars[k].adj_close
+        eq = cash + (shares * last_adj_close if shares and last_adj_close else 0)
+        equity.append(round(eq, 2))
+
+    open_pos = None
+    if shares and entry:
+        open_pos = {
+            "stock_id": etf_id, "name": etf_name,
+            "buy_date": entry["date"].isoformat(),
+            "buy_price": round(entry["price"], 2),
+            "shares": shares,
+            "last_close": round(last_adj_close, 2),
+            "unrealized_pnl": round(shares * last_adj_close - entry["cost"], 2),
+        }
+    return trades, equity, open_pos
+
+
 def main():
     os.makedirs(RESULT_DIR, exist_ok=True)
 
@@ -193,11 +280,14 @@ def main():
             ma20[i] = sum(closes[i - 19:i + 1]) / 20
     buy_signal = [False] * n
     sell_signal = [False] * n
+    below200_signal = [False] * n   # ETF 擇時出場：連續 3 日收盤 < 200MA（對稱規則）
     for i in range(2, n):
         if all(ma200[j] is not None and closes[j] > ma200[j] for j in (i - 2, i - 1, i)):
             buy_signal[i] = True
         if all(ma20[j] is not None and closes[j] < ma20[j] for j in (i - 2, i - 1, i)):
             sell_signal[i] = True
+        if all(ma200[j] is not None and closes[j] < ma200[j] for j in (i - 2, i - 1, i)):
+            below200_signal[i] = True
 
     trading_dates = [b.date for b in taiex]
     start_i = next(i for i, d in enumerate(trading_dates) if d >= BACKTEST_START)
@@ -236,6 +326,35 @@ def main():
               f"({final_eq / INITIAL_CASH * 100 - 100:+7.1f}%)  "
               f"交易 {len(trades):>3} 次  勝率 "
               f"{len(wins) / len(trades) * 100 if trades else 0:.0f}%", flush=True)
+
+    # ---------- ETF 擇時對照策略（路線 A）----------
+    etf_strategies = {}
+    etf_specs = [
+        ("0050_hold",   "0050",   "0050 買進持有", "0050.csv",   True),
+        ("0050_timing", "0050",   "0050 大盤200MA擇時", "0050.csv",   False),
+        ("00631L_timing", "00631L", "台灣50正2 大盤200MA擇時", "00631L.csv", False),
+    ]
+    for key, etf_id, label, fname, hold in etf_specs:
+        path = os.path.join(DATA_DIR, fname)
+        if not os.path.exists(path):
+            print(f"  [略過] 缺少 {fname}")
+            continue
+        bars = load_csv(path)
+        trades, equity, open_pos = simulate_etf(
+            etf_id, label, bars, trading_dates, start_i,
+            buy_signal, below200_signal, always_hold=hold)
+        etf_strategies[key] = {
+            "label": label, "equity": equity, "trades": trades,
+            "open_position": open_pos,
+        }
+        final_eq = equity[-1]
+        peak, mdd = equity[0], 0.0
+        for v in equity:
+            peak = max(peak, v)
+            mdd = max(mdd, (peak - v) / peak)
+        print(f"  {label}：期末 {final_eq:>12,.0f} 元 "
+              f"({final_eq / INITIAL_CASH * 100 - 100:+7.1f}%)  "
+              f"交易 {len(trades):>3} 次  最大回撤 {mdd * 100:.1f}%", flush=True)
 
     # ---------- 預設天數的文字報告與 CSV ----------
     dv = variants[str(DEFAULT_MOMENTUM)]
@@ -290,6 +409,7 @@ def main():
         "dates": eq_dates,
         "taiex": taiex_curve,
         "variants": variants,
+        "etf": etf_strategies,
     }
     with open(os.path.join(RESULT_DIR, "results.js"), "w", encoding="utf-8") as f:
         f.write("const BACKTEST_DATA = ")
