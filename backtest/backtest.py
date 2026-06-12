@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-AI-5D 強勢動能與大盤均線輪動回測系統（依 SRS 規格）
+AI-5D 強勢動能與大盤均線輪動回測系統（依 SRS 規格，參數化版）
 
-進場：TAIEX 連續 3 日收盤 > 200MA → 次日開盤全額買入過去 N 日漲幅第一名（平手比累計成交量）
-出場：TAIEX 連續 3 日收盤 < 20MA → 次日開盤清倉
+進場：TAIEX 連續 3 日收盤 > 進場MA → 次日開盤全額買入過去 N 日漲幅第一名（平手比累計成交量）
+出場：TAIEX 連續 3 日收盤 < 出場MA → 次日開盤清倉
 持有期間死抱，不換股。漲跌停鎖死順延至下一交易日。
-成本：手續費 0.1425% × 2.8 折（最低 1 元，買賣皆收）、賣出證交稅 0.3%。
+成本：手續費 0.1425% × 2.8 折（最低 1 元，買賣皆收）、賣出證交稅 0.3%（ETF 0.1%）。
 
-動能回看天數 N 一次回測多組（MOMENTUM_OPTIONS），供網頁端切換。
+可調參數（全部組合預先回測，供網頁端切換）：
+  動能回看天數 N：MOMENTUM_OPTIONS
+  進場均線：ENTRY_MA_OPTIONS／出場均線：EXIT_MA_OPTIONS
+ETF 擇時策略亦套用同一組進出場均線。
 """
 import csv
 import json
@@ -26,9 +29,13 @@ FEE_RATE = 0.001425 * 0.28   # 手續費 0.1425% × 2.8 折
 MIN_FEE = 1.0                # 最低手續費 1 元
 TAX_RATE = 0.003             # 證交稅（賣出，一般股票）
 ETF_TAX_RATE = 0.001         # 證交稅（賣出，ETF）
-MOMENTUM_OPTIONS = [5, 10, 20, 30, 60, 90, 120]  # 動能回看天數選項
-DEFAULT_MOMENTUM = 30        # SRS 預設值（報告檔以此輸出）
-LIMIT_PCT = 0.10             # 一般股票漲跌幅 10%
+MOMENTUM_OPTIONS = [5, 10, 20, 30, 60, 90, 120]
+DEFAULT_MOMENTUM = 30
+ENTRY_MA_OPTIONS = [60, 120, 200]      # 進場均線（站上）
+EXIT_MA_OPTIONS = [10, 20, 60, 200]    # 出場均線（跌破）
+DEFAULT_ENTRY_MA = 200
+DEFAULT_EXIT_MA = 20                   # SRS 預設 200/20
+LIMIT_PCT = 0.10
 
 Bar = namedtuple("Bar", "date open high low close adj_close volume")
 
@@ -49,12 +56,15 @@ def trade_fee(amount):
     return max(MIN_FEE, amount * FEE_RATE)
 
 
-def simulate(momentum_days, taiex_dates, closes, buy_signal, sell_signal,
-             start_i, stocks, stock_meta):
-    """執行單一動能天數的完整回測，回傳 (trades, equity, open_pos, final_equity)。"""
-    n = len(taiex_dates)
+def simulate(momentum_days, trading_dates, start_i, buy_signal, sell_signal,
+             stocks, stock_meta, rank_cache):
+    """個股動能策略完整回測。rank_cache 讓相同 (日期, 回看天數) 的選股結果跨參數組共用。"""
+    n = len(trading_dates)
 
     def momentum_rank(sig_date):
+        key = (sig_date, momentum_days)
+        if key in rank_cache:
+            return rank_cache[key]
         best = None
         for sid, s in stocks.items():
             k = s["by_date"].get(sig_date)
@@ -67,13 +77,14 @@ def simulate(momentum_days, taiex_dates, closes, buy_signal, sell_signal,
                 continue
             ret = p_now / p_then - 1
             vol_sum = sum(bars[j].volume for j in range(k - momentum_days + 1, k + 1))
-            key = (ret, vol_sum)
-            if best is None or key > best[0]:
-                best = (key, sid)
-        return best[1] if best else None
+            cand = (ret, vol_sum)
+            if best is None or cand > best[0]:
+                best = (cand, sid)
+        result = best[1] if best else None
+        rank_cache[key] = result
+        return result
 
     def limit_locked(sid, date, direction):
-        """開盤即鎖死一字（漲停買不到 / 跌停賣不掉）"""
         s = stocks[sid]
         k = s["by_date"].get(date)
         if k is None or k == 0:
@@ -91,9 +102,8 @@ def simulate(momentum_days, taiex_dates, closes, buy_signal, sell_signal,
     entry_info = None
 
     for i in range(start_i, n):
-        today = taiex_dates[i]
+        today = trading_dates[i]
 
-        # === 開盤：執行前一日確定的動作 ===
         if state == "PENDING_BUY" and pending_sid:
             s = stocks[pending_sid]
             k = s["by_date"].get(today)
@@ -138,7 +148,6 @@ def simulate(momentum_days, taiex_dates, closes, buy_signal, sell_signal,
                 entry_info = None
                 state = "EMPTY"
 
-        # === 收盤：判定訊號，決定次日動作 ===
         if state == "EMPTY" and buy_signal[i]:
             pick = momentum_rank(today)
             if pick:
@@ -150,7 +159,6 @@ def simulate(momentum_days, taiex_dates, closes, buy_signal, sell_signal,
         elif state == "HOLDING" and sell_signal[i]:
             state = "PENDING_SELL"
 
-        # === 每日權益（持股以當日收盤估值）===
         eq = cash
         if hold_shares and hold_sid:
             s = stocks[hold_sid]
@@ -180,8 +188,7 @@ def simulate(momentum_days, taiex_dates, closes, buy_signal, sell_signal,
 
 def simulate_etf(etf_id, etf_name, bars, trading_dates, start_i,
                  enter_sig, exit_sig, always_hold=False):
-    """ETF 擇時回測：進出場以大盤訊號決定，次日開盤成交，使用還原價含息。
-    always_hold=True 時為買進持有（僅期初買進一次）。"""
+    """ETF 擇時回測：進出場以大盤訊號決定，次日開盤成交，使用還原價含息。"""
     n = len(trading_dates)
     by_date = {b.date: k for k, b in enumerate(bars)}
 
@@ -201,7 +208,6 @@ def simulate_etf(etf_id, etf_name, bars, trading_dates, start_i,
         today = trading_dates[i]
         k = by_date.get(today)
 
-        # === 開盤執行 ===
         if k is not None and pending:
             if pending == "BUY" and state == "EMPTY":
                 price = adj_open(k)
@@ -236,16 +242,14 @@ def simulate_etf(etf_id, etf_name, bars, trading_dates, start_i,
                 })
                 shares, state, entry, pending = 0, "EMPTY", None, None
 
-        # === 收盤判定（買進持有不再進出）===
         if not always_hold:
             if state == "EMPTY" and enter_sig[i]:
                 pending = "BUY"
             elif state == "EMPTY" and pending == "BUY" and exit_sig[i]:
-                pending = None  # 待買期間轉空，放棄
+                pending = None
             elif state == "HOLDING" and exit_sig[i]:
                 pending = "SELL"
 
-        # === 每日權益（還原收盤估值）===
         if k is not None:
             last_adj_close = bars[k].adj_close
         eq = cash + (shares * last_adj_close if shares and last_adj_close else 0)
@@ -267,30 +271,35 @@ def simulate_etf(etf_id, etf_name, bars, trading_dates, start_i,
 def main():
     os.makedirs(RESULT_DIR, exist_ok=True)
 
-    # ---------- 大盤：均線與連續三日訊號 ----------
+    # ---------- 大盤與均線 ----------
     taiex = load_csv(os.path.join(DATA_DIR, "TAIEX.csv"))
     closes = [b.close for b in taiex]
     n = len(taiex)
-    ma200 = [None] * n
-    ma20 = [None] * n
-    for i in range(n):
-        if i >= 199:
-            ma200[i] = sum(closes[i - 199:i + 1]) / 200
-        if i >= 19:
-            ma20[i] = sum(closes[i - 19:i + 1]) / 20
-    buy_signal = [False] * n
-    sell_signal = [False] * n
-    below200_signal = [False] * n   # ETF 擇時出場：連續 3 日收盤 < 200MA（對稱規則）
-    for i in range(2, n):
-        if all(ma200[j] is not None and closes[j] > ma200[j] for j in (i - 2, i - 1, i)):
-            buy_signal[i] = True
-        if all(ma20[j] is not None and closes[j] < ma20[j] for j in (i - 2, i - 1, i)):
-            sell_signal[i] = True
-        if all(ma200[j] is not None and closes[j] < ma200[j] for j in (i - 2, i - 1, i)):
-            below200_signal[i] = True
-
     trading_dates = [b.date for b in taiex]
     start_i = next(i for i, d in enumerate(trading_dates) if d >= BACKTEST_START)
+
+    ma = {}
+    for w in sorted(set(ENTRY_MA_OPTIONS) | set(EXIT_MA_OPTIONS)):
+        arr = [None] * n
+        s = 0.0
+        for i in range(n):
+            s += closes[i]
+            if i >= w:
+                s -= closes[i - w]
+            if i >= w - 1:
+                arr[i] = s / w
+        ma[w] = arr
+
+    def build_signals(entry_w, exit_w):
+        me, mx = ma[entry_w], ma[exit_w]
+        buy = [False] * n
+        sell = [False] * n
+        for i in range(2, n):
+            if all(me[j] is not None and closes[j] > me[j] for j in (i - 2, i - 1, i)):
+                buy[i] = True
+            if all(mx[j] is not None and closes[j] < mx[j] for j in (i - 2, i - 1, i)):
+                sell[i] = True
+        return buy, sell
 
     # ---------- 個股資料 ----------
     with open(STOCK_LIST_FILE, encoding="utf-8-sig") as f:
@@ -304,60 +313,64 @@ def main():
         if len(bars) < 10:
             continue
         stocks[sid] = {"bars": bars, "by_date": {b.date: k for k, b in enumerate(bars)}}
-    print(f"載入個股 {len(stocks)} 檔、大盤 {n} 個交易日")
+    print(f"載入個股 {len(stocks)} 檔、大盤 {n} 個交易日", flush=True)
 
-    # ---------- 各動能天數回測 ----------
+    # ---------- 參數網格回測 ----------
     eq_dates = [d.isoformat() for d in trading_dates[start_i:]]
     taiex_base = closes[start_i]
     taiex_curve = [round(closes[i] / taiex_base * INITIAL_CASH, 2) for i in range(start_i, n)]
     years = (trading_dates[-1] - trading_dates[start_i]).days / 365.25
 
-    variants = {}
-    for md in MOMENTUM_OPTIONS:
-        trades, equity, open_pos = simulate(
-            md, trading_dates, closes, buy_signal, sell_signal,
-            start_i, stocks, stock_meta)
-        variants[str(md)] = {
-            "equity": equity, "trades": trades, "open_position": open_pos,
-        }
-        final_eq = equity[-1]
-        wins = [t for t in trades if t["pnl"] > 0]
-        print(f"  動能 {md:>3} 日：期末 {final_eq:>12,.0f} 元 "
-              f"({final_eq / INITIAL_CASH * 100 - 100:+7.1f}%)  "
-              f"交易 {len(trades):>3} 次  勝率 "
-              f"{len(wins) / len(trades) * 100 if trades else 0:.0f}%", flush=True)
-
-    # ---------- ETF 擇時對照策略（路線 A）----------
-    etf_strategies = {}
-    etf_specs = [
-        ("0050_hold",   "0050",   "0050 買進持有", "0050.csv",   True),
-        ("0050_timing", "0050",   "0050 大盤200MA擇時", "0050.csv",   False),
-        ("00631L_timing", "00631L", "台灣50正2 大盤200MA擇時", "00631L.csv", False),
-    ]
-    for key, etf_id, label, fname, hold in etf_specs:
+    etf_bars = {}
+    for etf_id, fname in [("0050", "0050.csv"), ("00631L", "00631L.csv")]:
         path = os.path.join(DATA_DIR, fname)
-        if not os.path.exists(path):
-            print(f"  [略過] 缺少 {fname}")
-            continue
-        bars = load_csv(path)
-        trades, equity, open_pos = simulate_etf(
-            etf_id, label, bars, trading_dates, start_i,
-            buy_signal, below200_signal, always_hold=hold)
-        etf_strategies[key] = {
-            "label": label, "equity": equity, "trades": trades,
-            "open_position": open_pos,
-        }
-        final_eq = equity[-1]
-        peak, mdd = equity[0], 0.0
-        for v in equity:
-            peak = max(peak, v)
-            mdd = max(mdd, (peak - v) / peak)
-        print(f"  {label}：期末 {final_eq:>12,.0f} 元 "
-              f"({final_eq / INITIAL_CASH * 100 - 100:+7.1f}%)  "
-              f"交易 {len(trades):>3} 次  最大回撤 {mdd * 100:.1f}%", flush=True)
+        if os.path.exists(path):
+            etf_bars[etf_id] = load_csv(path)
 
-    # ---------- 預設天數的文字報告與 CSV ----------
-    dv = variants[str(DEFAULT_MOMENTUM)]
+    variants = {}
+    etf_strategies = {}
+    rank_cache = {}
+
+    # 0050 買進持有（與均線參數無關）
+    if "0050" in etf_bars:
+        dummy = [False] * n
+        trades, equity, op = simulate_etf("0050", "0050 買進持有",
+                                          etf_bars["0050"], trading_dates, start_i,
+                                          dummy, dummy, always_hold=True)
+        etf_strategies["0050_hold"] = {"label": "0050 買進持有",
+                                       "equity": [int(round(v)) for v in equity],
+                                       "trades": trades, "open_position": op}
+        print(f"  0050 買進持有：期末 {equity[-1]:>12,.0f} 元", flush=True)
+
+    for e_ma in ENTRY_MA_OPTIONS:
+        for x_ma in EXIT_MA_OPTIONS:
+            buy_sig, sell_sig = build_signals(e_ma, x_ma)
+            for md in MOMENTUM_OPTIONS:
+                trades, equity, op = simulate(md, trading_dates, start_i,
+                                              buy_sig, sell_sig, stocks, stock_meta, rank_cache)
+                variants[f"{md}|{e_ma}|{x_ma}"] = {
+                    "equity": [int(round(v)) for v in equity],
+                    "trades": trades, "open_position": op,
+                }
+            for etf_id, label in [("0050", "0050 大盤均線擇時"),
+                                  ("00631L", "台灣50正2 大盤均線擇時")]:
+                if etf_id not in etf_bars:
+                    continue
+                trades, equity, op = simulate_etf(etf_id, label, etf_bars[etf_id],
+                                                  trading_dates, start_i, buy_sig, sell_sig)
+                etf_strategies[f"{etf_id}_timing|{e_ma}|{x_ma}"] = {
+                    "label": label,
+                    "equity": [int(round(v)) for v in equity],
+                    "trades": trades, "open_position": op,
+                }
+            mom30 = variants[f"{DEFAULT_MOMENTUM}|{e_ma}|{x_ma}"]["equity"][-1]
+            lev = etf_strategies.get(f"00631L_timing|{e_ma}|{x_ma}", {"equity": [0]})["equity"][-1]
+            print(f"  MA {e_ma:>3}/{x_ma:>3}：動能30日 期末 {mom30:>11,.0f}"
+                  f"｜正2擇時 期末 {lev:>11,.0f}", flush=True)
+
+    # ---------- 預設參數的文字報告與 CSV ----------
+    dkey = f"{DEFAULT_MOMENTUM}|{DEFAULT_ENTRY_MA}|{DEFAULT_EXIT_MA}"
+    dv = variants[dkey]
     trades, equity = dv["trades"], dv["equity"]
     final_equity = equity[-1]
     peak, max_dd = equity[0], 0.0
@@ -382,7 +395,7 @@ def main():
         "AI-5D 強勢動能與大盤均線輪動回測結果",
         "=" * 50,
         f"回測期間: {eq_dates[0]} ~ {eq_dates[-1]} ({years:.1f} 年)",
-        f"動能回看: {DEFAULT_MOMENTUM} 個交易日（預設）",
+        f"參數: 動能 {DEFAULT_MOMENTUM} 日｜進場 {DEFAULT_ENTRY_MA}MA／出場 {DEFAULT_EXIT_MA}MA（SRS 預設）",
         f"初始資金: {INITIAL_CASH:,.0f} 元",
         f"期末權益: {final_equity:,.0f} 元",
         f"總報酬率: {final_equity / INITIAL_CASH * 100 - 100:+.2f}%",
@@ -404,18 +417,27 @@ def main():
             "stock_count": len(stocks),
             "momentum_options": MOMENTUM_OPTIONS,
             "default_momentum": DEFAULT_MOMENTUM,
-            "fee": "0.1425% x 2.8折 (低消1元)", "tax": "0.3%",
+            "entry_ma_options": ENTRY_MA_OPTIONS,
+            "exit_ma_options": EXIT_MA_OPTIONS,
+            "default_entry_ma": DEFAULT_ENTRY_MA,
+            "default_exit_ma": DEFAULT_EXIT_MA,
+            "etf_bases": [["0050_hold", "0050 買進持有", False],
+                          ["0050_timing", "0050 大盤均線擇時", True],
+                          ["00631L_timing", "台灣50正2 大盤均線擇時", True]],
+            "fee": "0.1425% x 2.8折 (低消1元)", "tax": "0.3% / ETF 0.1%",
         },
         "dates": eq_dates,
         "taiex": taiex_curve,
         "variants": variants,
         "etf": etf_strategies,
     }
-    with open(os.path.join(RESULT_DIR, "results.js"), "w", encoding="utf-8") as f:
+    out = os.path.join(RESULT_DIR, "results.js")
+    with open(out, "w", encoding="utf-8") as f:
         f.write("const BACKTEST_DATA = ")
-        f.write(json.dumps(payload, ensure_ascii=False))
+        f.write(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
         f.write(";\n")
-    print("results.js 已更新（含 %d 組動能天數）" % len(MOMENTUM_OPTIONS))
+    size_mb = os.path.getsize(out) / 1048576
+    print(f"results.js 已更新：{len(variants)} 組動能參數＋{len(etf_strategies)} 組 ETF，{size_mb:.1f} MB")
 
 
 if __name__ == "__main__":

@@ -63,6 +63,19 @@
     <div class="flex gap-1.5 flex-wrap" id="strategy-btns"></div>
   </div>
 
+  <!-- 大盤均線參數選擇 -->
+  <div class="dark-card p-3 mb-4 flex flex-wrap items-center gap-x-5 gap-y-2" id="ma-card">
+    <span class="text-xs font-bold text-slate-300"><i class="fa-solid fa-wave-square text-indigo-400 mr-1"></i>大盤均線</span>
+    <div class="flex items-center gap-1.5 flex-wrap">
+      <span class="text-[11px] text-slate-400">進場（連3日站上）</span>
+      <div class="flex gap-1.5" id="entry-ma-btns"></div>
+    </div>
+    <div class="flex items-center gap-1.5 flex-wrap">
+      <span class="text-[11px] text-slate-400">出場（連3日跌破）</span>
+      <div class="flex gap-1.5" id="exit-ma-btns"></div>
+    </div>
+  </div>
+
   <!-- 動能回看天數選擇 -->
   <div class="dark-card p-3 mb-4 flex flex-wrap items-center gap-3" id="momentum-card">
     <span class="text-xs font-bold text-slate-300"><i class="fa-solid fa-gauge-high text-indigo-400 mr-1"></i>動能回看天數</span>
@@ -97,7 +110,7 @@
   <p class="text-[11px] text-slate-500 mt-4 leading-relaxed">
     資料來源：Yahoo Finance 歷史日 K（還原權息）。手續費 0.1425%×2.8 折（低消 1 元）、賣出證交稅 0.3%、次日開盤成交、支援零股。
     自選區間之統計係由完整回測（2016 起）的權益曲線切片計算，交易時點仍以完整回測為準；若起點落在持股期間，該段已含持股損益。
-    ETF 策略使用還原價（含息）計算、賣出證交稅 0.1%；擇時規則為加權指數連續 3 日收盤站上/跌破 200MA 之對稱訊號。
+    ETF 策略使用還原價（含息）計算、賣出證交稅 0.1%；擇時規則為加權指數連續 3 日收盤站上「進場均線」進場／跌破「出場均線」出場（兩者皆可調，SRS 預設 200/20）。
     比較基準「加權指數」為不含息之價格指數，故 0050 含息報酬高於大盤屬正常現象；正2 為槓桿型 ETF，波動與風險加倍，過往績效不代表未來。
     回測未含已下市股票（倖存者偏差）；MVP 版不處理停牌與下市事件。本頁僅供策略研究，不構成投資建議。
     <span id="gen-time"></span>
@@ -135,12 +148,35 @@ if (!D) {
 } else {
   const p = D.params;
   let curDays = String(p.default_momentum);
-  let curStrategy = "momentum";   // momentum 或 D.etf 的 key
-  let V = D.variants[curDays];
+  let curEntryMA = String(p.default_entry_ma);
+  let curExitMA = String(p.default_exit_ma);
+  let curStrategy = "momentum";   // momentum 或 etf_bases 的 key
+
+  // etf_bases: [key, label, 是否使用均線參數]
+  const ETF_USES_MA = Object.fromEntries((p.etf_bases || []).map(b => [b[0], b[2]]));
+  function resolveV() {
+    if (curStrategy === "momentum") return D.variants[`${curDays}|${curEntryMA}|${curExitMA}`];
+    if (!ETF_USES_MA[curStrategy]) return D.etf[curStrategy];
+    return D.etf[`${curStrategy}|${curEntryMA}|${curExitMA}`];
+  }
+  let V = resolveV();
+
+  function refreshControls() {
+    document.getElementById("momentum-card").style.display =
+      curStrategy === "momentum" ? "" : "none";
+    document.getElementById("ma-card").style.display =
+      (curStrategy === "momentum" || ETF_USES_MA[curStrategy]) ? "" : "none";
+  }
+  function switchTo() {
+    V = resolveV();
+    refreshControls();
+    renderOpenPos();
+    render();
+  }
 
   // 策略按鈕
   const STRATEGIES = [["momentum", "動能輪動選股"]]
-    .concat(Object.entries(D.etf || {}).map(([k, v]) => [k, v.label]));
+    .concat((p.etf_bases || []).map(b => [b[0], b[1]]));
   const sbox = document.getElementById("strategy-btns");
   function strategyBtnCls(key) {
     return "sbtn text-[11px] px-2.5 py-1 rounded-md " +
@@ -151,14 +187,32 @@ if (!D) {
   sbox.querySelectorAll(".sbtn").forEach(btn => {
     btn.addEventListener("click", () => {
       curStrategy = btn.dataset.s;
-      V = curStrategy === "momentum" ? D.variants[curDays] : D.etf[curStrategy];
       sbox.querySelectorAll(".sbtn").forEach(b => { b.className = strategyBtnCls(b.dataset.s); });
-      document.getElementById("momentum-card").style.display =
-        curStrategy === "momentum" ? "" : "none";
-      renderOpenPos();
-      render();
+      switchTo();
     });
   });
+
+  // 均線參數按鈕
+  function maBtnCls(active) {
+    return "text-[11px] px-2.5 py-1 rounded-md " +
+      (active ? "bg-indigo-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600");
+  }
+  function buildMaBtns(boxId, options, getCur, setCur) {
+    const box = document.getElementById(boxId);
+    box.innerHTML = options.map(v =>
+      `<button data-v="${v}" class="${maBtnCls(String(v) === getCur())}">${v}MA</button>`).join("");
+    box.querySelectorAll("button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        setCur(btn.dataset.v);
+        box.querySelectorAll("button").forEach(b => {
+          b.className = maBtnCls(b.dataset.v === getCur());
+        });
+        switchTo();
+      });
+    });
+  }
+  buildMaBtns("entry-ma-btns", p.entry_ma_options, () => curEntryMA, v => curEntryMA = v);
+  buildMaBtns("exit-ma-btns", p.exit_ma_options, () => curExitMA, v => curExitMA = v);
   document.getElementById("subtitle").textContent =
     `資料期間 ${p.start} ~ ${p.end}｜標的池 ${p.stock_count} 檔｜初始資金 ${fmt(p.initial_cash)} 元`;
   document.getElementById("gen-time").textContent = `報告產生時間：${D.generated_at}`;
@@ -170,13 +224,11 @@ if (!D) {
   mbox.querySelectorAll(".mbtn").forEach(btn => {
     btn.addEventListener("click", () => {
       curDays = btn.dataset.d;
-      V = D.variants[curDays];
       mbox.querySelectorAll(".mbtn").forEach(b => {
         b.className = "mbtn text-[11px] px-2.5 py-1 rounded-md " +
           (b.dataset.d === curDays ? "bg-indigo-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600");
       });
-      renderOpenPos();
-      render();
+      switchTo();
     });
   });
 
@@ -208,7 +260,9 @@ if (!D) {
 
     const dates = D.dates.slice(i0, i1 + 1);
     // 區間起點正規化為初始資金，策略與大盤同基準比較
-    const eqBase = V.equity[i0], txBase = D.taiex[i0];
+    // （完整區間時以初始資金為基準，保留第一天開盤進場的損益）
+    const eqBase = i0 === 0 ? p.initial_cash : V.equity[i0];
+    const txBase = D.taiex[i0];
     const equity = V.equity.slice(i0, i1 + 1).map(v => v / eqBase * p.initial_cash);
     const taiex = D.taiex.slice(i0, i1 + 1).map(v => v / txBase * p.initial_cash);
 
