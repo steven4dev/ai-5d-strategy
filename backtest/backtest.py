@@ -72,6 +72,28 @@ def load_csv(path):
     return bars
 
 
+def build_synthetic_lev_bars(taiex_bars, leverage=2.0, expense_annual=0.015, initial_nav=20.0):
+    """
+    以大盤日報酬 × leverage 合成槓桿 ETF K棒序列，取代 Yahoo Finance 的 00631L 資料。
+    Yahoo Finance 對 00631L 歷史資料有嚴重拆股問題（2016 年顯示 0.78 NTD，實際約 20 NTD），
+    直接使用會使回測高估約 10-15 倍。改以 TAIEX 日報酬 × 2 - 年費率（1.5%）合成。
+    每日淨值：nav_t = nav_{t-1} × (1 + leverage × r_taiex - daily_cost)
+    """
+    daily_cost = expense_annual / 252.0
+    bars = []
+    nav = initial_nav
+    for i, b in enumerate(taiex_bars):
+        if i > 0 and taiex_bars[i - 1].close > 0:
+            daily_ret = (b.close / taiex_bars[i - 1].close - 1) * leverage - daily_cost
+            nav = max(nav * (1 + daily_ret), 0.001)
+        open_nav = initial_nav if i == 0 else bars[i - 1].close  # 次日開盤 = 前日收盤NAV
+        bars.append(Bar(b.date,
+                        round(open_nav, 6), round(nav, 6), round(nav, 6),
+                        round(nav, 6), round(nav, 6),  # close = adj_close = nav
+                        0, 1.0))
+    return bars
+
+
 def trade_fee(amount):
     return max(MIN_FEE, amount * FEE_RATE)
 
@@ -354,10 +376,12 @@ def main():
     years = (trading_dates[-1] - trading_dates[start_i]).days / 365.25
 
     etf_bars = {}
-    for etf_id, fname in [("0050", "0050.csv"), ("00631L", "00631L.csv")]:
-        path = os.path.join(DATA_DIR, fname)
-        if os.path.exists(path):
-            etf_bars[etf_id] = load_csv(path)
+    path_0050 = os.path.join(DATA_DIR, "0050.csv")
+    if os.path.exists(path_0050):
+        etf_bars["0050"] = load_csv(path_0050)
+    # 00631L：不使用 Yahoo Finance 歷史資料（資料品質問題會使回測高估 10-15 倍），
+    # 改以 TAIEX 日報酬 × 2 合成（年費率 1.5%，起始淨值 20 NTD）。
+    etf_bars["00631L"] = build_synthetic_lev_bars(taiex)
 
     variants = {}
     etf_strategies = {}
