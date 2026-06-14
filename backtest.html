@@ -496,6 +496,7 @@ if (!D) {
         ｜最新價 ${o.last_close}｜未實現損益 <span class="${cls} font-bold">${o.unrealized_pnl>=0?"+":""}${fmt(o.unrealized_pnl)} 元</span></div>
       </div>`;
   }
+  refreshControls();
   renderOpenPos();
 
   startInput.addEventListener("change", () => { setActiveBtn(null); render(); });
