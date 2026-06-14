@@ -410,7 +410,7 @@ if (!D) {
       hovermode:"x unified",
     }, {responsive:true, displayModeBar:false});
 
-    document.getElementById("trade-rows").innerHTML = trades.map((t,i) => {
+    const completedRows = trades.map((t,i) => {
       const cls = t.pnl>=0?"text-up":"text-down";
       return `<tr><td class="text-slate-500">${i+1}</td>
         <td class="font-bold text-slate-100">${t.stock_id} ${t.name}</td>
@@ -420,7 +420,25 @@ if (!D) {
         <td>${fmt(t.sell_net)}</td>
         <td class="${cls} font-bold">${t.pnl>=0?"+":""}${fmt(t.pnl)}</td>
         <td class="${cls} font-bold">${pct(t.ret_pct)}</td></tr>`;
-    }).join("") || `<tr><td colspan="11" class="text-slate-500 text-center py-6">所選區間內無完成交易</td></tr>`;
+    }).join("");
+    let openRow = "";
+    if (V.open_position) {
+      const o = V.open_position;
+      const cls = o.unrealized_pnl >= 0 ? "text-up" : "text-down";
+      openRow = `<tr style="background:rgba(99,102,241,0.10)">
+        <td class="text-slate-500">${trades.length + 1}</td>
+        <td class="font-bold text-slate-100">${o.stock_id} ${o.name}</td>
+        <td>${o.buy_date}</td><td>${o.buy_price}</td><td>${fmt(o.shares)}</td>
+        <td>${fmt(o.buy_cost)}</td>
+        <td class="text-indigo-400 font-bold">持有中</td>
+        <td>${o.last_close}</td>
+        <td class="text-slate-500">—</td>
+        <td class="${cls} font-bold">${o.unrealized_pnl>=0?"+":""}${fmt(o.unrealized_pnl)}</td>
+        <td class="${cls} font-bold">${pct(o.unrealized_ret_pct)}</td></tr>`;
+    }
+    document.getElementById("trade-rows").innerHTML =
+      (completedRows + openRow) ||
+      `<tr><td colspan="11" class="text-slate-500 text-center py-6">所選區間內無完成交易</td></tr>`;
   }
 
   // 持有中部位（隨動能天數變動，不隨區間變動）

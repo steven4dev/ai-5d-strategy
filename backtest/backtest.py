@@ -175,13 +175,16 @@ def simulate(momentum_days, trading_dates, start_i, buy_signal, sell_signal,
     if hold_sid:
         meta = stock_meta.get(hold_sid, {})
         last_val = equity[-1] - cash
+        unreal_pnl = round(last_val - hold_cost, 2)
         open_pos = {
             "stock_id": hold_sid, "name": meta.get("name", ""),
             "buy_date": entry_info["date"].isoformat(),
             "buy_price": round(entry_info["price"], 2),
             "shares": hold_shares,
+            "buy_cost": round(hold_cost, 2),
             "last_close": round(last_val / hold_shares, 2) if hold_shares else 0,
-            "unrealized_pnl": round(last_val - hold_cost, 2),
+            "unrealized_pnl": unreal_pnl,
+            "unrealized_ret_pct": round(unreal_pnl / hold_cost * 100, 2) if hold_cost else 0,
         }
     return trades, equity, open_pos
 
@@ -257,13 +260,16 @@ def simulate_etf(etf_id, etf_name, bars, trading_dates, start_i,
 
     open_pos = None
     if shares and entry:
+        unreal_pnl = round(shares * last_adj_close - entry["cost"], 2)
         open_pos = {
             "stock_id": etf_id, "name": etf_name,
             "buy_date": entry["date"].isoformat(),
             "buy_price": round(entry["price"], 2),
             "shares": shares,
+            "buy_cost": round(entry["cost"], 2),
             "last_close": round(last_adj_close, 2),
-            "unrealized_pnl": round(shares * last_adj_close - entry["cost"], 2),
+            "unrealized_pnl": unreal_pnl,
+            "unrealized_ret_pct": round(unreal_pnl / entry["cost"] * 100, 2) if entry["cost"] else 0,
         }
     return trades, equity, open_pos
 
