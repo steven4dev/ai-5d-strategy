@@ -85,6 +85,9 @@
     <span class="text-[10px] text-slate-500 ml-auto">選股條件：買進過去 N 個交易日漲幅最大之個股（每組天數為獨立完整回測）</span>
   </div>
 
+  <!-- 績效總覽 -->
+  <div class="dark-card p-4 mb-4" id="perf-hero"></div>
+
   <!-- 統計卡 -->
   <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5" id="stat-cards"></div>
 
@@ -306,6 +309,31 @@ if (!D) {
 
     document.getElementById("range-note").textContent =
       `${dates[0]} ~ ${dates[dates.length - 1]}（${dates.length} 個交易日）`;
+
+    // 績效總覽區塊
+    const mult = finalEq / p.initial_cash;
+    const retCls = totalRet >= 0 ? "text-up" : "text-down";
+    document.getElementById("perf-hero").innerHTML = `
+      <div class="flex items-center justify-between flex-wrap gap-4">
+        <div class="text-center min-w-[100px]">
+          <div class="stat-label mb-1">初始投入</div>
+          <div class="text-xl font-bold text-slate-200">NT$${fmt(p.initial_cash)}</div>
+        </div>
+        <div class="flex-1 flex flex-col items-center gap-1.5 min-w-[150px]">
+          <div class="text-4xl font-black ${retCls} leading-none">${pct(totalRet * 100)}</div>
+          <div class="flex items-center w-full gap-2 px-3 my-0.5">
+            <div class="flex-1 border-t-2 border-dashed border-slate-600"></div>
+            <i class="fa-solid fa-arrow-right text-slate-500 text-sm"></i>
+            <div class="flex-1 border-t-2 border-dashed border-slate-600"></div>
+          </div>
+          <div class="text-[12px] text-slate-300">${mult.toFixed(1)} 倍 &nbsp;·&nbsp; ${years.toFixed(1)} 年 &nbsp;·&nbsp; 年化 <span class="${retCls} font-bold">${pct(cagr * 100)}</span></div>
+          <div class="text-[11px] text-slate-500">同期大盤 ${pct(taiexRet * 100)}</div>
+        </div>
+        <div class="text-center min-w-[100px]">
+          <div class="stat-label mb-1">期末資產</div>
+          <div class="text-xl font-bold ${retCls}">NT$${fmt(finalEq)}</div>
+        </div>
+      </div>`;
 
     const cards = [
       ["區間期末權益", fmt(finalEq) + " 元", totalRet>=0?"text-up":"text-down"],
