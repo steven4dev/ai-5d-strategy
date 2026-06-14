@@ -242,7 +242,8 @@ def simulate_etf(etf_id, etf_name, bars, trading_dates, start_i,
 
     def adj_open(k):
         b = bars[k]
-        return b.open * (b.adj_close / b.close) if b.close else b.open
+        o = b.open or b.close  # 開盤價為 0（Yahoo 缺漏）時改用收盤價
+        return o * (b.adj_close / b.close) if b.close else o
 
     cash = INITIAL_CASH
     shares = 0
