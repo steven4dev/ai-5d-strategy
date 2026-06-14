@@ -157,6 +157,28 @@ if (!D) {
 
   // etf_bases: [key, label, 是否使用均線參數]
   const ETF_USES_MA = Object.fromEntries((p.etf_bases || []).map(b => [b[0], b[2]]));
+
+  // 自動選出全期末權益最高的預設參數組合
+  (function() {
+    const last = D.dates.length - 1;
+    let bestEq = -Infinity;
+    for (const [key, v] of Object.entries(D.variants)) {
+      if (v.equity[last] > bestEq) {
+        bestEq = v.equity[last];
+        const [d, en, ex] = key.split("|");
+        curStrategy = "momentum"; curDays = d; curEntryMA = en; curExitMA = ex;
+      }
+    }
+    for (const [key, v] of Object.entries(D.etf)) {
+      if (v.equity[last] > bestEq) {
+        bestEq = v.equity[last];
+        const parts = key.split("|");
+        curStrategy = parts[0];
+        if (parts.length >= 3) { curEntryMA = parts[1]; curExitMA = parts[2]; }
+      }
+    }
+  })();
+
   function resolveV() {
     if (curStrategy === "momentum") return D.variants[`${curDays}|${curEntryMA}|${curExitMA}`];
     if (!ETF_USES_MA[curStrategy]) return D.etf[curStrategy];
