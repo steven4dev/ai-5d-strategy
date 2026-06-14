@@ -331,16 +331,19 @@ def main():
     etf_strategies = {}
     rank_cache = {}
 
-    # 0050 買進持有（與均線參數無關）
-    if "0050" in etf_bars:
-        dummy = [False] * n
-        trades, equity, op = simulate_etf("0050", "0050 買進持有",
-                                          etf_bars["0050"], trading_dates, start_i,
+    # 買進持有（與均線參數無關）
+    dummy = [False] * n
+    for hold_id, hold_label, hold_key in [("0050", "0050 買進持有", "0050_hold"),
+                                           ("00631L", "台灣50正2 買進持有", "00631L_hold")]:
+        if hold_id not in etf_bars:
+            continue
+        trades, equity, op = simulate_etf(hold_id, hold_label,
+                                          etf_bars[hold_id], trading_dates, start_i,
                                           dummy, dummy, always_hold=True)
-        etf_strategies["0050_hold"] = {"label": "0050 買進持有",
-                                       "equity": [int(round(v)) for v in equity],
-                                       "trades": trades, "open_position": op}
-        print(f"  0050 買進持有：期末 {equity[-1]:>12,.0f} 元", flush=True)
+        etf_strategies[hold_key] = {"label": hold_label,
+                                    "equity": [int(round(v)) for v in equity],
+                                    "trades": trades, "open_position": op}
+        print(f"  {hold_label}：期末 {equity[-1]:>12,.0f} 元", flush=True)
 
     for e_ma in ENTRY_MA_OPTIONS:
         for x_ma in EXIT_MA_OPTIONS:
@@ -423,6 +426,7 @@ def main():
             "default_exit_ma": DEFAULT_EXIT_MA,
             "etf_bases": [["0050_hold", "0050 買進持有", False],
                           ["0050_timing", "0050 大盤均線擇時", True],
+                          ["00631L_hold", "台灣50正2 買進持有", False],
                           ["00631L_timing", "台灣50正2 大盤均線擇時", True]],
             "fee": "0.1425% x 2.8折 (低消1元)", "tax": "0.3% / ETF 0.1%",
         },
