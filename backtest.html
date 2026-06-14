@@ -119,7 +119,7 @@
 
   <p class="text-[11px] text-slate-500 mt-4 leading-relaxed">
     資料來源：Yahoo Finance 歷史日 K（還原權息）。手續費 0.1425%×2.8 折（低消 1 元）、賣出證交稅 0.3%、次日開盤成交、支援零股。
-    自選區間之統計係由完整回測（2016 起）的權益曲線切片計算，交易時點仍以完整回測為準；若起點落在持股期間，該段已含持股損益。
+    自選區間之統計係由完整回測（2006 起）的權益曲線切片計算，交易時點仍以完整回測為準；若起點落在持股期間，該段已含持股損益。
     ETF 策略使用還原價（含息）計算、賣出證交稅 0.1%；擇時規則為加權指數連續 3 日收盤站上「進場均線」進場／跌破「出場均線」出場（兩者皆可調，SRS 預設 200/20）。
     比較基準「加權指數」為不含息之價格指數，故 0050 含息報酬高於大盤屬正常現象。00631L 以約 1 元/單位掛牌發行，adj_close 即含息還原淨值（Yahoo Finance 對槓桿 ETF 不另外扣除配息，因配息已計入 NAV）；槓桿 ETF 每日重置 beta≈2，長期持有存在波動耗損，過往超額績效含台積電驅動之時代紅利，不代表未來。
     回測未含已下市股票（倖存者偏差）；MVP 版不處理停牌與下市事件。本頁僅供策略研究，不構成投資建議。
@@ -149,7 +149,7 @@
 
       <div class="border-b border-slate-700 pb-3">
         <div class="text-indigo-300 font-bold mb-1.5">🏦 0050 買進持有</div>
-        <div class="text-[13px]">2016 年起全額買入元大台灣 50（0050）並持有至今，不做任何進出場操作。含息還原價計算，視為自動將股息再投入。</div>
+        <div class="text-[13px]">2006 年起全額買入元大台灣 50（0050）並持有至今，不做任何進出場操作。含息還原價計算，視為自動將股息再投入。</div>
       </div>
 
       <div class="border-b border-slate-700 pb-3">
@@ -163,7 +163,7 @@
 
       <div class="border-b border-slate-700 pb-3">
         <div class="text-indigo-300 font-bold mb-1.5">⚡ 台灣50正2 買進持有</div>
-        <div class="text-[13px]">2016 年起全額買入元大台灣50正2（00631L）並持有至今。00631L 以約 1 元/單位掛牌，使用 Yahoo Finance adj_close（含息還原淨值）計算損益。槓桿 ETF 每日重置 beta≈2，波動耗損（Volatility Decay）真實存在；2016–2026 超額績效主因為台積電驅動的台灣50大幅跑贏大盤，屬時代紅利，不代表未來可複製。</div>
+        <div class="text-[13px]">回測起點起全額買入元大台灣50正2（00631L）並持有至今。00631L 於 2014 年 10 月掛牌（以約 1 元/單位），使用 Yahoo Finance adj_close（含息還原淨值）計算損益。槓桿 ETF 每日重置 beta≈2，波動耗損（Volatility Decay）真實存在；超額績效主因為台積電驅動的台灣50大幅跑贏大盤，屬時代紅利，不代表未來可複製。</div>
       </div>
 
       <div class="pb-1">
@@ -176,7 +176,7 @@
       </div>
 
       <div class="text-xs text-slate-500 border-t border-slate-700 pt-3">
-        回測期間 2016-01-01 起、初始資金 10 萬元。個股池：上市櫃一般股票（排除 ETF／權證／特別股）。買進/賣出價為當日開盤價（含拆股還原）；手續費 0.1425%×2.8折（低消 1 元）。本頁僅供策略研究，不構成投資建議。
+        回測期間 2006-01-01 起（20 年）、初始資金 10 萬元。個股池：上市櫃一般股票（排除 ETF／權證／特別股）。買進/賣出價為當日開盤價（含拆股還原）；手續費 0.1425%×2.8折（低消 1 元）。本頁僅供策略研究，不構成投資建議。
       </div>
     </div>
   </div>
@@ -500,8 +500,59 @@ if (!D) {
   refreshControls();
   renderOpenPos();
 
-  startInput.addEventListener("change", () => { setActiveBtn(null); render(); });
-  endInput.addEventListener("change", () => { setActiveBtn(null); render(); });
+  // 切換日期區間時，自動選出該區間績效最好的策略
+  function autoSelectBest(i0, i1) {
+    let bestRet = -Infinity;
+    const base = (v) => i0 === 0 ? p.initial_cash : (v.equity[i0] || p.initial_cash);
+    for (const [key, v] of Object.entries(D.variants)) {
+      if (!v.equity[i1]) continue;
+      const ret = v.equity[i1] / base(v);
+      if (ret > bestRet) {
+        bestRet = ret;
+        const [d, en, ex] = key.split("|");
+        curStrategy = "momentum"; curDays = d; curEntryMA = en; curExitMA = ex;
+      }
+    }
+    for (const [key, v] of Object.entries(D.etf)) {
+      if (!v.equity[i1]) continue;
+      const ret = v.equity[i1] / base(v);
+      if (ret > bestRet) {
+        bestRet = ret;
+        const parts = key.split("|");
+        curStrategy = parts[0];
+        if (parts.length >= 3) { curEntryMA = parts[1]; curExitMA = parts[2]; }
+        else { curEntryMA = String(p.default_entry_ma); curExitMA = String(p.default_exit_ma); }
+      }
+    }
+    V = resolveV();
+    refreshControls();
+    renderOpenPos();
+    sbox.querySelectorAll(".sbtn").forEach(b => { b.className = strategyBtnCls(b.dataset.s); });
+    document.getElementById("entry-ma-btns").querySelectorAll("button").forEach(b => {
+      b.className = maBtnCls(b.dataset.v === curEntryMA);
+    });
+    document.getElementById("exit-ma-btns").querySelectorAll("button").forEach(b => {
+      b.className = maBtnCls(b.dataset.v === curExitMA);
+    });
+    mbox.querySelectorAll(".mbtn").forEach(b => {
+      b.className = "mbtn text-[11px] px-2.5 py-1 rounded-md " +
+        (b.dataset.d === curDays ? "bg-indigo-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600");
+    });
+  }
+
+  function switchRangeAndBest() {
+    let s = startInput.value || D.dates[0];
+    let e = endInput.value || D.dates[D.dates.length - 1];
+    if (s > e) [s, e] = [e, s];
+    const i0 = lowerBound(s);
+    let i1 = lowerBound(e);
+    if (D.dates[i1] > e && i1 > 0) i1--;
+    if (i1 > i0) autoSelectBest(i0, i1);
+    render();
+  }
+
+  startInput.addEventListener("change", () => { setActiveBtn(null); switchRangeAndBest(); });
+  endInput.addEventListener("change", () => { setActiveBtn(null); switchRangeAndBest(); });
 
   function setActiveBtn(btn) {
     document.querySelectorAll(".qbtn").forEach(b => {
@@ -522,7 +573,7 @@ if (!D) {
       }
       endInput.value = last;
       setActiveBtn(btn);
-      render();
+      switchRangeAndBest();
     });
   });
 

@@ -20,8 +20,8 @@ TOKEN_FILE = os.path.join(BASE_DIR, "finmind_token.txt")
 STOCK_LIST_FILE = os.path.join(BASE_DIR, "stock_list.csv")
 FAILED_FILE = os.path.join(BASE_DIR, "failed_downloads.csv")
 
-# 回測期間 2016-01-01 起；提前一年下載供 200MA / 動能漲幅暖身
-DOWNLOAD_START = datetime.date(2015, 1, 1)
+# 回測期間 2006-01-01 起（20年）；提前一年下載供 200MA / 動能漲幅暖身
+DOWNLOAD_START = datetime.date(2005, 1, 1)
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 REQUEST_INTERVAL = 0.4  # 秒，避免 Yahoo 限速
 
@@ -201,6 +201,22 @@ def main():
         if n == 0:
             sys.exit("TAIEX 下載失敗，中止")
 
+    # ETF（不在個股清單內，需獨立下載）
+    for etf_sym, etf_fname in [("0050.TW", "0050.csv"), ("00631L.TW", "00631L.csv")]:
+        etf_path = os.path.join(DATA_DIR, etf_fname)
+        need = force or not os.path.exists(etf_path)
+        if not need:
+            try:
+                with open(etf_path, encoding="utf-8") as f:
+                    f.readline(); first = f.readline().split(",")[0]
+                need = not first or first >= "2006-01-01"
+            except Exception:
+                need = True
+        if need:
+            n = download_symbol(etf_sym, etf_path)
+            print(f"[ETF] {etf_sym} {n} 筆")
+            time.sleep(REQUEST_INTERVAL)
+
     stocks = fetch_stock_list()
     failed = []
     done = skipped = empty = 0
@@ -213,13 +229,12 @@ def main():
             if not force:
                 skipped += 1
                 continue
-            # force 模式：檔案若已涵蓋新起始年（或標的上市較晚）仍可跳過 —
-            # 以首筆日期是否落在舊起始日(2020)之前判斷是否為新版資料
+            # force 模式：已涵蓋 2005 年以前的資料則跳過（已是 20 年版）
             try:
                 with open(out_path, encoding="utf-8") as f:
                     f.readline()
                     first_date = f.readline().split(",")[0]
-                if first_date and first_date < "2020-01-01":
+                if first_date and first_date < "2006-01-01":
                     skipped += 1
                     continue
             except Exception:
