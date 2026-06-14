@@ -257,7 +257,9 @@ if (!D) {
   sbox.querySelectorAll(".sbtn").forEach(btn => {
     btn.addEventListener("click", () => {
       curStrategy = btn.dataset.s;
-      sbox.querySelectorAll(".sbtn").forEach(b => { b.className = strategyBtnCls(b.dataset.s); });
+      const { i0, i1 } = getRange();
+      if (i1 > i0) autoSelectBestForStrategy(curStrategy, i0, i1);
+      updateParamBtns();
       switchTo();
     });
   });
@@ -501,36 +503,27 @@ if (!D) {
   renderOpenPos();
 
   // 切換日期區間時，自動選出該區間績效最好的策略
-  function autoSelectBest(i0, i1) {
-    let bestRet = -Infinity;
-    // 比較相對報酬（與圖表顯示的 % 一致），分母加 10% 底限防止幾近破產的策略靠谷底反彈異常勝出
+  // 從日期輸入取得當前 i0/i1
+  function getRange() {
+    let s = startInput.value || D.dates[0];
+    let e = endInput.value || D.dates[D.dates.length - 1];
+    if (s > e) [s, e] = [e, s];
+    const i0 = lowerBound(s);
+    let i1 = lowerBound(e);
+    if (D.dates[i1] > e && i1 > 0) i1--;
+    return { i0, i1 };
+  }
+
+  // 相對報酬評分（與圖表 % 一致）；分母加 10% 底限防止幾近破產策略靠谷底反彈異常勝出
+  function scoreV(v, i0, i1) {
+    if (!v.equity[i1]) return -Infinity;
     const floor = p.initial_cash * 0.1;
-    const score = (v) => {
-      if (!v.equity[i1]) return -Infinity;
-      const e0 = i0 === 0 ? p.initial_cash : Math.max(v.equity[i0] || 0, floor);
-      return v.equity[i1] / e0;
-    };
-    for (const [key, v] of Object.entries(D.variants)) {
-      const ret = score(v);
-      if (ret > bestRet) {
-        bestRet = ret;
-        const [d, en, ex] = key.split("|");
-        curStrategy = "momentum"; curDays = d; curEntryMA = en; curExitMA = ex;
-      }
-    }
-    for (const [key, v] of Object.entries(D.etf)) {
-      const ret = score(v);
-      if (ret > bestRet) {
-        bestRet = ret;
-        const parts = key.split("|");
-        curStrategy = parts[0];
-        if (parts.length >= 3) { curEntryMA = parts[1]; curExitMA = parts[2]; }
-        else { curEntryMA = String(p.default_entry_ma); curExitMA = String(p.default_exit_ma); }
-      }
-    }
-    V = resolveV();
-    refreshControls();
-    renderOpenPos();
+    const e0 = i0 === 0 ? p.initial_cash : Math.max(v.equity[i0] || 0, floor);
+    return v.equity[i1] / e0;
+  }
+
+  // 更新所有參數按鈕的高亮狀態
+  function updateParamBtns() {
     sbox.querySelectorAll(".sbtn").forEach(b => { b.className = strategyBtnCls(b.dataset.s); });
     document.getElementById("entry-ma-btns").querySelectorAll("button").forEach(b => {
       b.className = maBtnCls(b.dataset.v === curEntryMA);
@@ -544,13 +537,62 @@ if (!D) {
     });
   }
 
+  // 針對指定策略，在 i0..i1 區間內自動選出最佳參數（天數／進出場均線）
+  function autoSelectBestForStrategy(strategy, i0, i1) {
+    if (strategy === "momentum") {
+      let best = -Infinity;
+      for (const [key, v] of Object.entries(D.variants)) {
+        const s = scoreV(v, i0, i1);
+        if (s > best) {
+          best = s;
+          const [d, en, ex] = key.split("|");
+          curDays = d; curEntryMA = en; curExitMA = ex;
+        }
+      }
+    } else if (ETF_USES_MA[strategy]) {
+      let best = -Infinity;
+      for (const [key, v] of Object.entries(D.etf)) {
+        const parts = key.split("|");
+        if (parts[0] !== strategy || parts.length < 3) continue;
+        const s = scoreV(v, i0, i1);
+        if (s > best) {
+          best = s;
+          curEntryMA = parts[1]; curExitMA = parts[2];
+        }
+      }
+    }
+    // ETF 無均線參數者無需選擇
+  }
+
+  // 跨所有策略自動選出最佳組合
+  function autoSelectBest(i0, i1) {
+    let best = -Infinity;
+    for (const [key, v] of Object.entries(D.variants)) {
+      const s = scoreV(v, i0, i1);
+      if (s > best) {
+        best = s;
+        const [d, en, ex] = key.split("|");
+        curStrategy = "momentum"; curDays = d; curEntryMA = en; curExitMA = ex;
+      }
+    }
+    for (const [key, v] of Object.entries(D.etf)) {
+      const s = scoreV(v, i0, i1);
+      if (s > best) {
+        best = s;
+        const parts = key.split("|");
+        curStrategy = parts[0];
+        if (parts.length >= 3) { curEntryMA = parts[1]; curExitMA = parts[2]; }
+        else { curEntryMA = String(p.default_entry_ma); curExitMA = String(p.default_exit_ma); }
+      }
+    }
+    V = resolveV();
+    refreshControls();
+    renderOpenPos();
+    updateParamBtns();
+  }
+
   function switchRangeAndBest() {
-    let s = startInput.value || D.dates[0];
-    let e = endInput.value || D.dates[D.dates.length - 1];
-    if (s > e) [s, e] = [e, s];
-    const i0 = lowerBound(s);
-    let i1 = lowerBound(e);
-    if (D.dates[i1] > e && i1 > 0) i1--;
+    const { i0, i1 } = getRange();
     if (i1 > i0) autoSelectBest(i0, i1);
     render();
   }
