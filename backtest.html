@@ -503,11 +503,15 @@ if (!D) {
   // 切換日期區間時，自動選出該區間績效最好的策略
   function autoSelectBest(i0, i1) {
     let bestRet = -Infinity;
-    // 比較「期間內絕對獲利」（而非比值），避免近乎破產的策略因谷底反彈比值過高而錯誤勝出
-    const gain = (v) => v.equity[i1] - (i0 === 0 ? 0 : (v.equity[i0] || 0));
+    // 比較相對報酬（與圖表顯示的 % 一致），分母加 10% 底限防止幾近破產的策略靠谷底反彈異常勝出
+    const floor = p.initial_cash * 0.1;
+    const score = (v) => {
+      if (!v.equity[i1]) return -Infinity;
+      const e0 = i0 === 0 ? p.initial_cash : Math.max(v.equity[i0] || 0, floor);
+      return v.equity[i1] / e0;
+    };
     for (const [key, v] of Object.entries(D.variants)) {
-      if (!v.equity[i1]) continue;
-      const ret = gain(v);
+      const ret = score(v);
       if (ret > bestRet) {
         bestRet = ret;
         const [d, en, ex] = key.split("|");
@@ -515,8 +519,7 @@ if (!D) {
       }
     }
     for (const [key, v] of Object.entries(D.etf)) {
-      if (!v.equity[i1]) continue;
-      const ret = gain(v);
+      const ret = score(v);
       if (ret > bestRet) {
         bestRet = ret;
         const parts = key.split("|");
