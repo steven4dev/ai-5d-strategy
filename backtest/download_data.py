@@ -92,8 +92,27 @@ def yahoo_symbol(stock_id, market_type):
     return f"{stock_id}.TW" if market_type == "twse" else f"{stock_id}.TWO"
 
 
+def extract_splits(result_item):
+    """從 Yahoo Finance API 回傳中取出拆股事件，回傳 {date_str: ratio}。"""
+    splits = {}
+    for ts_str, sp in (result_item.get("events", {}).get("splits") or {}).items():
+        split_date = datetime.date.fromtimestamp(int(ts_str)).isoformat()
+        splits[split_date] = round(sp["numerator"] / sp["denominator"], 6)
+    return splits
+
+
+def save_splits(splits, out_path):
+    """存拆股資料；若無拆股則刪除舊檔。"""
+    splits_path = out_path.replace(".csv", "_splits.json")
+    if splits:
+        with open(splits_path, "w", encoding="utf-8") as f:
+            json.dump(splits, f)
+    elif os.path.exists(splits_path):
+        os.remove(splits_path)
+
+
 def download_symbol(symbol, out_path):
-    """下載單一標的日 K 並存 CSV。回傳資料筆數，無資料回傳 0。"""
+    """下載單一標的日 K 並存 CSV；同時存拆股事件。回傳資料筆數，無資料回傳 0。"""
     p1 = int(time.mktime(DOWNLOAD_START.timetuple()))
     p2 = int(time.time())
     url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
@@ -127,12 +146,52 @@ def download_symbol(symbol, out_path):
         w = csv.writer(f)
         w.writerow(["date", "open", "high", "low", "close", "adj_close", "volume"])
         w.writerows(rows)
+    save_splits(extract_splits(d), out_path)
     return len(rows)
+
+
+def fetch_splits_only(symbol, out_path):
+    """僅取得拆股事件，不重新下載 K 線。供 --splits-only 模式使用。"""
+    p1 = int(time.mktime(DOWNLOAD_START.timetuple()))
+    p2 = int(time.time())
+    url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+           f"?period1={p1}&period2={p2}&interval=1d&events=split&range=1d")
+    try:
+        raw = json.loads(http_get(url))
+    except Exception:
+        return
+    result = raw.get("chart", {}).get("result")
+    if not result:
+        return
+    save_splits(extract_splits(result[0]), out_path)
 
 
 def main():
     force = "--force" in sys.argv  # 覆寫既有檔案（變更下載起始日時使用）
+    splits_only = "--splits-only" in sys.argv  # 僅更新拆股資料，不重下 K 線
     os.makedirs(DATA_DIR, exist_ok=True)
+
+    # --splits-only：快速補齊所有個股及 ETF 的拆股事件
+    if splits_only:
+        print("【僅更新拆股資料模式】", flush=True)
+        stocks = fetch_stock_list()
+        etf_symbols = [("0050.TW", os.path.join(DATA_DIR, "0050.csv")),
+                       ("00631L.TW", os.path.join(DATA_DIR, "00631L.csv"))]
+        all_targets = [(yahoo_symbol(s["stock_id"], s["type"]),
+                        os.path.join(DATA_DIR, f"{s['stock_id']}.csv"))
+                       for s in stocks] + etf_symbols
+        for idx, (sym, path) in enumerate(all_targets, 1):
+            if not os.path.exists(path):
+                continue
+            try:
+                fetch_splits_only(sym, path)
+            except Exception:
+                pass
+            if idx % 200 == 0:
+                print(f"進度 {idx}/{len(all_targets)}", flush=True)
+            time.sleep(REQUEST_INTERVAL)
+        print("拆股資料更新完成", flush=True)
+        return
 
     # 大盤指數
     taiex_path = os.path.join(DATA_DIR, "TAIEX.csv")

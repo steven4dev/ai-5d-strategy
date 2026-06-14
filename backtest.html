@@ -39,7 +39,10 @@
       <h1 class="text-xl font-bold text-white"><i class="fa-solid fa-flag-checkered text-indigo-400 mr-2"></i>AI-5D 強勢動能與大盤均線輪動回測</h1>
       <p class="text-xs text-slate-400 mt-1" id="subtitle">載入中…</p>
     </div>
-    <button onclick="openRules()" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg"><i class="fa-solid fa-circle-info mr-1"></i>策略規則</button>
+    <div class="flex gap-2">
+      <button onclick="openRules()" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg"><i class="fa-solid fa-circle-info mr-1"></i>策略規則</button>
+      <button onclick="location.reload()" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg"><i class="fa-solid fa-rotate-right mr-1"></i>刷新</button>
+    </div>
   </div>
 
   <!-- 時間區間選擇 -->
@@ -130,12 +133,50 @@
       <h2 class="text-lg font-bold text-white"><i class="fa-solid fa-scroll mr-2 text-indigo-400"></i>策略規則</h2>
       <button onclick="closeRules()" class="text-slate-400 hover:text-white w-8 h-8 rounded-full hover:bg-slate-700"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <div class="p-5 overflow-y-auto text-sm text-slate-300 space-y-3">
-      <div><strong class="text-emerald-400">進場：</strong>加權指數連續 3 日收盤站上 200MA → 次日開盤「全額」買進過去 30 個交易日漲幅最大的個股（平手比累計成交量）。</div>
-      <div><strong class="text-rose-400">出場：</strong>加權指數連續 3 日收盤跌破 20MA → 次日開盤清倉，回到空手。</div>
-      <div><strong class="text-indigo-300">持有：</strong>進場後死抱不換股，直到大盤觸發出場。一次只持有一檔。</div>
-      <div><strong class="text-amber-300">邊界：</strong>開盤漲停一字鎖死買不到 → 順延次日續試；跌停鎖死賣不掉 → 順延次日續賣。待買期間若大盤轉空則放棄買進。</div>
-      <div class="text-xs text-slate-500">回測期間 2021-01-01 起、初始資金 10 萬元、上市櫃一般股票（排除 ETF／權證／特別股）。</div>
+    <div class="p-5 overflow-y-auto text-sm text-slate-300 space-y-4">
+
+      <div class="border-b border-slate-700 pb-3">
+        <div class="text-indigo-300 font-bold mb-1.5">📊 動能輪動選股</div>
+        <div class="space-y-1.5 text-[13px]">
+          <div><strong class="text-emerald-400">進場：</strong>加權指數連續 3 日收盤站上「進場均線」→ 次日開盤「全額」買進過去 N 個交易日漲幅最大的個股（平手比累計成交量）。</div>
+          <div><strong class="text-rose-400">出場：</strong>加權指數連續 3 日收盤跌破「出場均線」→ 次日開盤清倉，回到空手。</div>
+          <div><strong class="text-slate-300">持有：</strong>進場後死抱不換股，直到大盤觸發出場。一次只持有一檔。</div>
+          <div><strong class="text-amber-300">邊界：</strong>開盤漲停一字鎖死 → 順延次日續試；跌停鎖死 → 順延次日續賣。待買期間若大盤轉空則放棄買進。</div>
+          <div class="text-slate-500 text-xs">可調參數：進場均線（60/120/200MA）、出場均線（10/20/60/200MA）、動能回看天數（5/10/20/30/60/90/120日）</div>
+        </div>
+      </div>
+
+      <div class="border-b border-slate-700 pb-3">
+        <div class="text-indigo-300 font-bold mb-1.5">🏦 0050 買進持有</div>
+        <div class="text-[13px]">2016 年起全額買入元大台灣 50（0050）並持有至今，不做任何進出場操作。含息還原價計算，視為自動將股息再投入。</div>
+      </div>
+
+      <div class="border-b border-slate-700 pb-3">
+        <div class="text-indigo-300 font-bold mb-1.5">📈 0050 大盤均線擇時</div>
+        <div class="text-[13px] space-y-1">
+          <div><strong class="text-emerald-400">進場：</strong>加權指數連續 3 日站上「進場均線」→ 次日開盤全額買入 0050。</div>
+          <div><strong class="text-rose-400">出場：</strong>加權指數連續 3 日跌破「出場均線」→ 次日開盤全部賣出。</div>
+          <div class="text-slate-500 text-xs">使用含息還原價；ETF 賣出稅 0.1%。</div>
+        </div>
+      </div>
+
+      <div class="border-b border-slate-700 pb-3">
+        <div class="text-indigo-300 font-bold mb-1.5">⚡ 台灣50正2 買進持有</div>
+        <div class="text-[13px]">2016 年起全額買入元大台灣50正2（00631L）並持有至今。槓桿 ETF 每日重置 beta≈2，長期持有存在槓桿耗損；過往高績效含時代紅利，不代表未來。</div>
+      </div>
+
+      <div class="pb-1">
+        <div class="text-indigo-300 font-bold mb-1.5">⚡📈 台灣50正2 大盤均線擇時</div>
+        <div class="text-[13px] space-y-1">
+          <div><strong class="text-emerald-400">進場：</strong>加權指數連續 3 日站上「進場均線」→ 次日開盤全額買入 00631L。</div>
+          <div><strong class="text-rose-400">出場：</strong>加權指數連續 3 日跌破「出場均線」→ 次日開盤全部賣出。</div>
+          <div class="text-slate-500 text-xs">使用含息還原價；ETF 賣出稅 0.1%。</div>
+        </div>
+      </div>
+
+      <div class="text-xs text-slate-500 border-t border-slate-700 pt-3">
+        回測期間 2016-01-01 起、初始資金 10 萬元。個股池：上市櫃一般股票（排除 ETF／權證／特別股）。買進/賣出價為當日開盤價（含拆股還原）；手續費 0.1425%×2.8折（低消 1 元）。本頁僅供策略研究，不構成投資建議。
+      </div>
     </div>
   </div>
 </div>

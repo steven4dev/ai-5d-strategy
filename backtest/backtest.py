@@ -37,7 +37,7 @@ DEFAULT_ENTRY_MA = 200
 DEFAULT_EXIT_MA = 20                   # SRS 預設 200/20
 LIMIT_PCT = 0.10
 
-Bar = namedtuple("Bar", "date open high low close adj_close volume")
+Bar = namedtuple("Bar", "date open high low close adj_close volume split_factor")
 
 
 def load_csv(path):
@@ -48,7 +48,27 @@ def load_csv(path):
                 datetime.date.fromisoformat(r["date"]),
                 float(r["open"]), float(r["high"]), float(r["low"]),
                 float(r["close"]), float(r["adj_close"]), int(float(r["volume"])),
+                1.0,  # split_factor placeholder
             ))
+
+    # 從 _splits.json 載入拆股事件，計算每根K棒的累計拆股倍率
+    # split_factor = 從該日期之後到最新日期，所有拆股比率的乘積
+    # 顯示用的真實歷史價 = bars[k].open * bars[k].split_factor
+    splits_path = path.replace(".csv", "_splits.json")
+    if os.path.exists(splits_path):
+        with open(splits_path, encoding="utf-8") as f:
+            splits_raw = json.load(f)  # {date_str: ratio}
+        if splits_raw:
+            sorted_splits = sorted(splits_raw.items(), reverse=True)  # 最新在前
+            ptr, cum = 0, 1.0
+            new_bars = []
+            for bar in reversed(bars):
+                date_str = bar.date.isoformat()
+                while ptr < len(sorted_splits) and sorted_splits[ptr][0] > date_str:
+                    cum *= sorted_splits[ptr][1]
+                    ptr += 1
+                new_bars.append(bar._replace(split_factor=cum))
+            bars = list(reversed(new_bars))
     return bars
 
 
@@ -109,6 +129,8 @@ def simulate(momentum_days, trading_dates, start_i, buy_signal, sell_signal,
             k = s["by_date"].get(today)
             if k is not None and not limit_locked(pending_sid, today, "up"):
                 price = s["bars"][k].open
+                # 顯示用的真實歷史開盤價（含後續拆股還原）
+                display_buy = round(price * s["bars"][k].split_factor, 2)
                 shares = int(cash / (price * (1 + FEE_RATE)))
                 while shares > 0 and shares * price + trade_fee(shares * price) > cash:
                     shares -= 1
@@ -118,7 +140,7 @@ def simulate(momentum_days, trading_dates, start_i, buy_signal, sell_signal,
                     cash -= amount + fee
                     hold_sid, hold_shares = pending_sid, shares
                     hold_cost = amount + fee
-                    entry_info = {"date": today, "price": price}
+                    entry_info = {"date": today, "price": price, "display_price": display_buy}
                     state = "HOLDING"
                     pending_sid = None
         elif state == "PENDING_SELL" and hold_sid:
@@ -126,6 +148,7 @@ def simulate(momentum_days, trading_dates, start_i, buy_signal, sell_signal,
             k = s["by_date"].get(today)
             if k is not None and not limit_locked(hold_sid, today, "down"):
                 price = s["bars"][k].open
+                display_sell = round(price * s["bars"][k].split_factor, 2)
                 amount = hold_shares * price
                 fee = trade_fee(amount)
                 tax = amount * TAX_RATE
@@ -135,11 +158,11 @@ def simulate(momentum_days, trading_dates, start_i, buy_signal, sell_signal,
                     "stock_id": hold_sid,
                     "name": meta.get("name", ""),
                     "buy_date": entry_info["date"].isoformat(),
-                    "buy_price": round(entry_info["price"], 2),
+                    "buy_price": entry_info["display_price"],
                     "shares": hold_shares,
                     "buy_cost": round(hold_cost, 2),
                     "sell_date": today.isoformat(),
-                    "sell_price": round(price, 2),
+                    "sell_price": display_sell,
                     "sell_net": round(amount - fee - tax, 2),
                     "pnl": round(amount - fee - tax - hold_cost, 2),
                     "ret_pct": round((amount - fee - tax) / hold_cost * 100 - 100, 2),
@@ -179,7 +202,7 @@ def simulate(momentum_days, trading_dates, start_i, buy_signal, sell_signal,
         open_pos = {
             "stock_id": hold_sid, "name": meta.get("name", ""),
             "buy_date": entry_info["date"].isoformat(),
-            "buy_price": round(entry_info["price"], 2),
+            "buy_price": entry_info["display_price"],
             "shares": hold_shares,
             "buy_cost": round(hold_cost, 2),
             "last_close": round(last_val / hold_shares, 2) if hold_shares else 0,
@@ -214,7 +237,7 @@ def simulate_etf(etf_id, etf_name, bars, trading_dates, start_i,
         if k is not None and pending:
             if pending == "BUY" and state == "EMPTY":
                 price = adj_open(k)          # 還原價，用於 P&L 計算
-                raw_price = bars[k].open     # 實際市場開盤價，用於顯示
+                display_buy = round(bars[k].open * bars[k].split_factor, 2)  # 真實市場開盤價
                 qty = int(cash / (price * (1 + FEE_RATE)))
                 while qty > 0 and qty * price + trade_fee(qty * price) > cash:
                     qty -= 1
@@ -224,12 +247,12 @@ def simulate_etf(etf_id, etf_name, bars, trading_dates, start_i,
                     cash -= amount + fee
                     shares = qty
                     state = "HOLDING"
-                    entry = {"date": today, "price": price, "raw_price": raw_price,
+                    entry = {"date": today, "price": price, "display_price": display_buy,
                              "cost": amount + fee}
                 pending = None
             elif pending == "SELL" and state == "HOLDING":
                 price = adj_open(k)
-                raw_price = bars[k].open
+                display_sell = round(bars[k].open * bars[k].split_factor, 2)
                 amount = shares * price
                 fee = trade_fee(amount)
                 tax = amount * ETF_TAX_RATE
@@ -237,11 +260,11 @@ def simulate_etf(etf_id, etf_name, bars, trading_dates, start_i,
                 trades.append({
                     "stock_id": etf_id, "name": etf_name,
                     "buy_date": entry["date"].isoformat(),
-                    "buy_price": round(entry["raw_price"], 2),
+                    "buy_price": entry["display_price"],
                     "shares": shares,
                     "buy_cost": round(entry["cost"], 2),
                     "sell_date": today.isoformat(),
-                    "sell_price": round(raw_price, 2),
+                    "sell_price": display_sell,
                     "sell_net": round(amount - fee - tax, 2),
                     "pnl": round(amount - fee - tax - entry["cost"], 2),
                     "ret_pct": round((amount - fee - tax) / entry["cost"] * 100 - 100, 2),
@@ -267,7 +290,7 @@ def simulate_etf(etf_id, etf_name, bars, trading_dates, start_i,
         open_pos = {
             "stock_id": etf_id, "name": etf_name,
             "buy_date": entry["date"].isoformat(),
-            "buy_price": round(entry["raw_price"], 2),
+            "buy_price": entry["display_price"],
             "shares": shares,
             "buy_cost": round(entry["cost"], 2),
             "last_close": round(last_adj_close, 2),
