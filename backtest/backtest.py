@@ -376,12 +376,10 @@ def main():
     years = (trading_dates[-1] - trading_dates[start_i]).days / 365.25
 
     etf_bars = {}
-    path_0050 = os.path.join(DATA_DIR, "0050.csv")
-    if os.path.exists(path_0050):
-        etf_bars["0050"] = load_csv(path_0050)
-    # 00631L：不使用 Yahoo Finance 歷史資料（資料品質問題會使回測高估 10-15 倍），
-    # 改以 TAIEX 日報酬 × 2 合成（年費率 1.5%，起始淨值 20 NTD）。
-    etf_bars["00631L"] = build_synthetic_lev_bars(taiex)
+    for etf_id, fname in [("0050", "0050.csv"), ("00631L", "00631L.csv")]:
+        path = os.path.join(DATA_DIR, fname)
+        if os.path.exists(path):
+            etf_bars[etf_id] = load_csv(path)
 
     variants = {}
     etf_strategies = {}
