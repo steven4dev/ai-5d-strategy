@@ -213,7 +213,8 @@ def simulate_etf(etf_id, etf_name, bars, trading_dates, start_i,
 
         if k is not None and pending:
             if pending == "BUY" and state == "EMPTY":
-                price = adj_open(k)
+                price = adj_open(k)          # 還原價，用於 P&L 計算
+                raw_price = bars[k].open     # 實際市場開盤價，用於顯示
                 qty = int(cash / (price * (1 + FEE_RATE)))
                 while qty > 0 and qty * price + trade_fee(qty * price) > cash:
                     qty -= 1
@@ -223,10 +224,12 @@ def simulate_etf(etf_id, etf_name, bars, trading_dates, start_i,
                     cash -= amount + fee
                     shares = qty
                     state = "HOLDING"
-                    entry = {"date": today, "price": price, "cost": amount + fee}
+                    entry = {"date": today, "price": price, "raw_price": raw_price,
+                             "cost": amount + fee}
                 pending = None
             elif pending == "SELL" and state == "HOLDING":
                 price = adj_open(k)
+                raw_price = bars[k].open
                 amount = shares * price
                 fee = trade_fee(amount)
                 tax = amount * ETF_TAX_RATE
@@ -234,11 +237,11 @@ def simulate_etf(etf_id, etf_name, bars, trading_dates, start_i,
                 trades.append({
                     "stock_id": etf_id, "name": etf_name,
                     "buy_date": entry["date"].isoformat(),
-                    "buy_price": round(entry["price"], 2),
+                    "buy_price": round(entry["raw_price"], 2),
                     "shares": shares,
                     "buy_cost": round(entry["cost"], 2),
                     "sell_date": today.isoformat(),
-                    "sell_price": round(price, 2),
+                    "sell_price": round(raw_price, 2),
                     "sell_net": round(amount - fee - tax, 2),
                     "pnl": round(amount - fee - tax - entry["cost"], 2),
                     "ret_pct": round((amount - fee - tax) / entry["cost"] * 100 - 100, 2),
@@ -264,7 +267,7 @@ def simulate_etf(etf_id, etf_name, bars, trading_dates, start_i,
         open_pos = {
             "stock_id": etf_id, "name": etf_name,
             "buy_date": entry["date"].isoformat(),
-            "buy_price": round(entry["price"], 2),
+            "buy_price": round(entry["raw_price"], 2),
             "shares": shares,
             "buy_cost": round(entry["cost"], 2),
             "last_close": round(last_adj_close, 2),
