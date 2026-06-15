@@ -95,6 +95,100 @@
   <!-- 統計卡 -->
   <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5" id="stat-cards"></div>
 
+  <!-- 各區間最佳策略摘要 -->
+  <div class="dark-card p-4 mb-5">
+    <div class="text-sm font-bold text-slate-200 mb-3"><i class="fa-solid fa-trophy text-indigo-400 mr-1"></i>各區間最佳策略摘要（近6月 ～ 近5年）</div>
+    <div class="overflow-x-auto mb-4">
+      <table class="w-full text-left" style="font-size:0.75rem;">
+        <thead>
+          <tr class="text-slate-400 border-b border-slate-700">
+            <th class="pb-2 pr-4 font-semibold whitespace-nowrap">區間</th>
+            <th class="pb-2 pr-4 font-semibold whitespace-nowrap">全域最佳策略</th>
+            <th class="pb-2 pr-4 font-semibold text-right whitespace-nowrap">報酬率</th>
+            <th class="pb-2 pr-4 font-semibold whitespace-nowrap">ETF 最佳</th>
+            <th class="pb-2 font-semibold text-right whitespace-nowrap">ETF 報酬</th>
+          </tr>
+        </thead>
+        <tbody class="text-slate-300">
+          <tr class="border-b border-slate-700/50">
+            <td class="py-2 pr-4 whitespace-nowrap">近6月</td>
+            <td class="py-2 pr-4 whitespace-nowrap text-green-400 font-medium">動能 10日 / 60MA 進 / 200MA 出</td>
+            <td class="py-2 pr-4 text-right text-up font-medium">+366%</td>
+            <td class="py-2 pr-4 whitespace-nowrap">00631L 買入持有</td>
+            <td class="py-2 text-right text-up">+120%</td>
+          </tr>
+          <tr class="border-b border-slate-700/50">
+            <td class="py-2 pr-4 whitespace-nowrap">近1年</td>
+            <td class="py-2 pr-4 whitespace-nowrap text-green-400 font-medium">動能 10日 / 60MA 進 / 200MA 出</td>
+            <td class="py-2 pr-4 text-right text-up font-medium">+332%</td>
+            <td class="py-2 pr-4 whitespace-nowrap">00631L 擇時 200MA進 / 60MA出</td>
+            <td class="py-2 text-right text-up">+276%</td>
+          </tr>
+          <tr class="border-b border-slate-700/50">
+            <td class="py-2 pr-4 whitespace-nowrap">近2年</td>
+            <td class="py-2 pr-4 whitespace-nowrap text-green-400 font-medium">動能 10日 / 60MA 進 / 200MA 出</td>
+            <td class="py-2 pr-4 text-right text-up font-medium">+764%</td>
+            <td class="py-2 pr-4 whitespace-nowrap">00631L 擇時 200MA進 / 200MA出</td>
+            <td class="py-2 text-right text-up">+243%</td>
+          </tr>
+          <tr class="border-b border-slate-700/50">
+            <td class="py-2 pr-4 whitespace-nowrap">近3年</td>
+            <td class="py-2 pr-4 whitespace-nowrap text-green-400 font-medium">動能 10日 / 60MA 進 / 200MA 出</td>
+            <td class="py-2 pr-4 text-right text-up font-medium">+1,164%</td>
+            <td class="py-2 pr-4 whitespace-nowrap">00631L 擇時 200MA進 / 200MA出</td>
+            <td class="py-2 text-right text-up">+480%</td>
+          </tr>
+          <tr>
+            <td class="py-2 pr-4 whitespace-nowrap">近5年</td>
+            <td class="py-2 pr-4 whitespace-nowrap text-green-400 font-medium">動能 10日 / 60MA 進 / 200MA 出</td>
+            <td class="py-2 pr-4 text-right text-up font-medium">+1,289%</td>
+            <td class="py-2 pr-4 whitespace-nowrap">00631L 擇時 60MA進 / 60MA出</td>
+            <td class="py-2 text-right text-up">+563%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="border-t border-slate-700 pt-3">
+      <div class="text-xs text-slate-400 font-semibold mb-2"><i class="fa-solid fa-sliders text-indigo-400 mr-1"></i>各策略最佳參數一覽</div>
+      <table class="w-full text-left" style="font-size:0.75rem;">
+        <thead>
+          <tr class="text-slate-400 border-b border-slate-700">
+            <th class="pb-2 pr-4 font-semibold">策略</th>
+            <th class="pb-2 pr-4 font-semibold text-center">動能天數</th>
+            <th class="pb-2 pr-4 font-semibold text-center">進場均線</th>
+            <th class="pb-2 font-semibold text-center">出場均線</th>
+          </tr>
+        </thead>
+        <tbody class="text-slate-300">
+          <tr class="border-b border-slate-700/50">
+            <td class="py-2 pr-4 text-green-400 font-medium whitespace-nowrap">動能輪動（近6月～近5年全區間最佳）</td>
+            <td class="py-2 pr-4 text-center">10 日</td>
+            <td class="py-2 pr-4 text-center">60MA</td>
+            <td class="py-2 text-center">200MA</td>
+          </tr>
+          <tr class="border-b border-slate-700/50">
+            <td class="py-2 pr-4 text-blue-400 whitespace-nowrap">00631L 買入持有</td>
+            <td class="py-2 pr-4 text-center text-slate-500">—</td>
+            <td class="py-2 pr-4 text-center text-slate-500">—</td>
+            <td class="py-2 text-center text-slate-500">—</td>
+          </tr>
+          <tr class="border-b border-slate-700/50">
+            <td class="py-2 pr-4 text-blue-400 whitespace-nowrap">00631L 擇時（近1年～近3年）</td>
+            <td class="py-2 pr-4 text-center text-slate-500">—</td>
+            <td class="py-2 pr-4 text-center">200MA</td>
+            <td class="py-2 text-center">200MA</td>
+          </tr>
+          <tr>
+            <td class="py-2 pr-4 text-blue-400 whitespace-nowrap">00631L 擇時（近5年）</td>
+            <td class="py-2 pr-4 text-center text-slate-500">—</td>
+            <td class="py-2 pr-4 text-center">60MA</td>
+            <td class="py-2 text-center">60MA</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- 權益曲線 -->
   <div class="dark-card p-4 mb-5">
     <div class="text-sm font-bold text-slate-200 mb-2"><i class="fa-solid fa-chart-line text-indigo-400 mr-1"></i>權益曲線 vs 大盤（同期投入 10 萬元）</div>
