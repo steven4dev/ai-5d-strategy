@@ -240,17 +240,19 @@ def simulate_etf(etf_id, etf_name, bars, trading_dates, start_i,
     n = len(trading_dates)
     by_date = {b.date: k for k, b in enumerate(bars)}
 
-    # 偵測 ETF 拆股事件：adj_close 單日暴跌 ≥50% 時視為前向拆股，記錄拆分倍率。
-    # 僅在 adj/close ≈ 1.0（無除息還原，即 Yahoo 未做 backward 調整）時才補正持股數；
-    # 有除息還原的 ETF（如 0050，adj/close ≈ 0.637）已透過 adj_close 隱含正確報酬，不需補正。
+    # 偵測 ETF 拆股事件：adj_close 單日暴跌 ≥50% 視為前向股票拆分，記錄拆分倍率。
+    # Yahoo Finance 對台灣 ETF（包含 0050、00631L）的 adj_close 均未做 backward split 還原：
+    #   - 00631L：adj_close ≈ close（無除息），拆股後 adj_close 隨 close 等比下跌
+    #   - 0050：adj_close = close × dividend_factor，dividend_factor 在拆股前後不變，
+    #           代表 Yahoo 只調整除息、未調整拆股，adj_close 同樣隨 close 等比下跌
+    # 因此兩者都需要在拆股日手動將持股數乘以拆分倍率，才能得到正確的累計報酬。
+    # 驗證：0050 理論總報酬（價格 12.41x × 除息 1.606x）= 19.93x；
+    #       套用補正後模擬值 = 19.95x ✓；不補正則僅 4.98x（低估 4 倍）。
     etf_splits = {}
     for i in range(1, len(bars)):
         pa, ca = bars[i-1].adj_close, bars[i].adj_close
-        pc, cc = bars[i-1].close, bars[i].close
-        if pa > 0 and ca > 0 and ca / pa < 0.5 and pc > 0:
-            # adj/close 在拆股前後若保持 ≈1.0，代表 Yahoo 未做 backward 調整 → 須手動補正
-            if abs(pa / pc - 1.0) < 0.05:
-                etf_splits[bars[i].date] = pa / ca  # 拆分倍率（例：00631L≈21.9）
+        if pa > 0 and ca > 0 and ca / pa < 0.5:
+            etf_splits[bars[i].date] = pa / ca  # 拆分倍率（例：00631L≈21.9，0050≈4.0）
 
     def adj_open(k):
         b = bars[k]
