@@ -240,6 +240,18 @@ def simulate_etf(etf_id, etf_name, bars, trading_dates, start_i,
     n = len(trading_dates)
     by_date = {b.date: k for k, b in enumerate(bars)}
 
+    # 偵測 ETF 拆股事件：adj_close 單日暴跌 ≥50% 時視為前向拆股，記錄拆分倍率。
+    # 僅在 adj/close ≈ 1.0（無除息還原，即 Yahoo 未做 backward 調整）時才補正持股數；
+    # 有除息還原的 ETF（如 0050，adj/close ≈ 0.637）已透過 adj_close 隱含正確報酬，不需補正。
+    etf_splits = {}
+    for i in range(1, len(bars)):
+        pa, ca = bars[i-1].adj_close, bars[i].adj_close
+        pc, cc = bars[i-1].close, bars[i].close
+        if pa > 0 and ca > 0 and ca / pa < 0.5 and pc > 0:
+            # adj/close 在拆股前後若保持 ≈1.0，代表 Yahoo 未做 backward 調整 → 須手動補正
+            if abs(pa / pc - 1.0) < 0.05:
+                etf_splits[bars[i].date] = pa / ca  # 拆分倍率（例：00631L≈21.9）
+
     def adj_open(k):
         b = bars[k]
         o = b.open or b.close  # 開盤價為 0（Yahoo 缺漏）時改用收盤價
@@ -256,6 +268,10 @@ def simulate_etf(etf_id, etf_name, bars, trading_dates, start_i,
     for i in range(start_i, n):
         today = trading_dates[i]
         k = by_date.get(today)
+
+        # 拆股調整在成交前套用：ex-date 開盤即為除權後價格，持股數須先乘以倍率
+        if k is not None and state == "HOLDING" and bars[k].date in etf_splits:
+            shares = int(shares * etf_splits[bars[k].date])
 
         if k is not None and pending:
             if pending == "BUY" and state == "EMPTY":
