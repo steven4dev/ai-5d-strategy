@@ -514,11 +514,12 @@ if (!D) {
     return { i0, i1 };
   }
 
-  // 相對報酬評分（與圖表 % 一致）；分母加 10% 底限防止幾近破產策略靠谷底反彈異常勝出
+  // 相對報酬評分，與圖表顯示的 % 完全一致：分母 = equity[i0]（i0>0）或 initial_cash（全期）
+  // equity[i0]=0 表示策略在區間起點已破產，回傳 -Infinity 直接排除
   function scoreV(v, i0, i1) {
     if (!v.equity[i1]) return -Infinity;
-    const floor = p.initial_cash * 0.1;
-    const e0 = i0 === 0 ? p.initial_cash : Math.max(v.equity[i0] || 0, floor);
+    const e0 = i0 === 0 ? p.initial_cash : (v.equity[i0] || 0);
+    if (i0 > 0 && e0 <= 0) return -Infinity;
     return v.equity[i1] / e0;
   }
 
