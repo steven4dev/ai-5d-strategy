@@ -395,7 +395,7 @@ def main():
     years = (trading_dates[-1] - trading_dates[start_i]).days / 365.25
 
     etf_bars = {}
-    for etf_id, fname in [("0050", "0050.csv"), ("00631L", "00631L.csv")]:
+    for etf_id, fname in [("0050", "0050.csv"), ("00631L", "00631L.csv"), ("00685L", "00685L.csv")]:
         path = os.path.join(DATA_DIR, fname)
         if os.path.exists(path):
             etf_bars[etf_id] = load_csv(path)
@@ -407,7 +407,8 @@ def main():
     # 買進持有（與均線參數無關）
     dummy = [False] * n
     for hold_id, hold_label, hold_key in [("0050", "0050 買進持有", "0050_hold"),
-                                           ("00631L", "台灣50正2 買進持有", "00631L_hold")]:
+                                           ("00631L", "台灣50正2 買進持有", "00631L_hold"),
+                                           ("00685L", "富邦加權正2 買進持有", "00685L_hold")]:
         if hold_id not in etf_bars:
             continue
         trades, equity, op = simulate_etf(hold_id, hold_label,
@@ -429,7 +430,8 @@ def main():
                     "trades": trades, "open_position": op,
                 }
             for etf_id, label in [("0050", "0050 大盤均線擇時"),
-                                  ("00631L", "台灣50正2 大盤均線擇時")]:
+                                  ("00631L", "台灣50正2 大盤均線擇時"),
+                                  ("00685L", "富邦加權正2 大盤均線擇時")]:
                 if etf_id not in etf_bars:
                     continue
                 trades, equity, op = simulate_etf(etf_id, label, etf_bars[etf_id],
@@ -440,9 +442,10 @@ def main():
                     "trades": trades, "open_position": op,
                 }
             mom30 = variants[f"{DEFAULT_MOMENTUM}|{e_ma}|{x_ma}"]["equity"][-1]
-            lev = etf_strategies.get(f"00631L_timing|{e_ma}|{x_ma}", {"equity": [0]})["equity"][-1]
+            lev631 = etf_strategies.get(f"00631L_timing|{e_ma}|{x_ma}", {"equity": [0]})["equity"][-1]
+            lev685 = etf_strategies.get(f"00685L_timing|{e_ma}|{x_ma}", {"equity": [0]})["equity"][-1]
             print(f"  MA {e_ma:>3}/{x_ma:>3}：動能30日 期末 {mom30:>11,.0f}"
-                  f"｜正2擇時 期末 {lev:>11,.0f}", flush=True)
+                  f"｜00631L擇時 {lev631:>11,.0f}｜00685L擇時 {lev685:>11,.0f}", flush=True)
 
     # ---------- 預設參數的文字報告與 CSV ----------
     dkey = f"{DEFAULT_MOMENTUM}|{DEFAULT_ENTRY_MA}|{DEFAULT_EXIT_MA}"
@@ -500,7 +503,9 @@ def main():
             "etf_bases": [["0050_hold", "0050 買進持有", False],
                           ["0050_timing", "0050 大盤均線擇時", True],
                           ["00631L_hold", "台灣50正2 買進持有", False],
-                          ["00631L_timing", "台灣50正2 大盤均線擇時", True]],
+                          ["00631L_timing", "台灣50正2 大盤均線擇時", True],
+                          ["00685L_hold", "富邦加權正2 買進持有", False],
+                          ["00685L_timing", "富邦加權正2 大盤均線擇時", True]],
             "fee": "0.1425% x 2.8折 (低消1元)", "tax": "0.3% / ETF 0.1%",
         },
         "dates": eq_dates,
